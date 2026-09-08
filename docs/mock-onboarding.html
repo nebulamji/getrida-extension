@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GetRida.Work — Onboarding</title>
+  <style>
+    *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, system-ui, sans-serif; background: #0a0a0a; color: #e5e5e5; min-height: 100vh; }
+    .shell { max-width: 680px; margin: auto; padding: 48px 20px; }
+    h1 { font-size: 32px; font-weight: 700; margin-bottom: 8px; color: #fff; }
+    h2 { font-size: 22px; font-weight: 600; margin-bottom: 12px; color: #fff; }
+    p { font-size: 15px; line-height: 1.6; color: #a1a1a1; margin-bottom: 16px; }
+    .panel { background: #111; border: 1px solid #2a2a2a; border-radius: 12px; padding: 28px; margin-bottom: 20px; }
+    .btn { display: inline-block; padding: 14px 28px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; font-size: 15px; text-decoration: none; text-align: center; }
+    .btn-primary { background: #fff; color: #000; }
+    .btn-primary:hover { opacity: .85; }
+    .btn-secondary { background: #222; color: #ccc; border: 1px solid #333; }
+    .btn-secondary:hover { background: #333; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+    .badge-green { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+    .badge-blue { background: #0c4a6e; color: #38bdf8; border: 1px solid #0369a1; }
+    .badge-red { background: #1c0a09; color: #f87171; border: 1px solid #7f1d1d; }
+    .plan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+    .plan { background: #111; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px; cursor: pointer; transition: border-color .15s; }
+    .plan:hover { border-color: #525252; }
+    .plan.selected { border-color: #fff; background: #1a1a1a; }
+    .plan-name { font-size: 14px; color: #999; margin-bottom: 4px; }
+    .plan-price { font-size: 28px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    .plan-price small { font-size: 13px; color: #666; font-weight: 400; }
+    .plan-desc { font-size: 13px; color: #888; line-height: 1.4; }
+    .steps { list-style: none; counter-reset: step; margin: 16px 0; }
+    .steps li { counter-increment: step; padding: 14px 0 14px 40px; position: relative; border-bottom: 1px solid #1a1a1a; font-size: 14px; }
+    .steps li:last-child { border-bottom: none; }
+    .steps li::before { content: counter(step); position: absolute; left: 0; top: 14px; width: 24px; height: 24px; background: #222; border-radius: 50%; text-align: center; line-height: 24px; font-size: 11px; font-weight: 700; color: #999; }
+    .steps li.done::before { background: #166534; color: #4ade80; content: "✓"; }
+    .steps li.active::before { background: #0369a1; color: #fff; }
+    .code { background: #050505; border: 1px solid #2a2a2a; border-radius: 6px; padding: 12px; font-family: 'SF Mono', 'Monaco', monospace; font-size: 12px; color: #7cf; word-break: break-all; margin: 8px 0; }
+    input, select { background: #111; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px 14px; color: #fff; font-size: 15px; width: 100%; margin-bottom: 10px; outline: none; }
+    input:focus { border-color: #525252; }
+    label { font-size: 13px; color: #999; display: block; margin-bottom: 4px; }
+    .platforms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
+    .platform { background: #0d0d0d; border: 1px solid #2a2a2a; border-radius: 8px; padding: 14px 10px; text-align: center; cursor: pointer; font-size: 13px; transition: all .15s; }
+    .platform:hover { border-color: #444; }
+    .platform.connected { border-color: #166534; background: #0a1a0a; }
+    .platform-icon { font-size: 20px; margin-bottom: 6px; display: block; }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #333; border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .hidden { display: none; }
+    .status-msg { font-size: 13px; color: #888; margin-top: 12px; padding: 8px 0; }
+    .status-msg.ok { color: #4ade80; }
+    .status-msg.err { color: #f87171; }
+    .back-btn { background: none; border: none; color: #666; cursor: pointer; font-size: 13px; margin-bottom: 16px; padding: 0; }
+    .back-btn:hover { color: #999; }
+    .note { font-size: 12px; color: #525252; margin-top: 6px; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ============ SCREEN 1: PRICING (Stripe paywall) ============ -->
+  <div id="screen-pricing">
+    <div style="text-align:center;margin-bottom:32px">
+      <p style="font-size:13px;letter-spacing:2px;color:#525252;margin-bottom:12px">GETRIDA.WORK</p>
+      <h1>Your AI employee.</h1>
+      <p style="margin-top:12px">Identity-scoped agent runtime on every platform you use.</p>
+      <p style="margin-top:8px"><span class="badge badge-green">MOCK MODE</span> Real Stripe checkout links. Simulated webhook fires instantly.</p>
+    </div>
+
+    <div class="plan-grid">
+      <div class="plan" data-plan="rida_starter" data-amount="97" onclick="selectPlan(this)">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">$97<small>/mo</small></div>
+        <div class="plan-desc">5M credits · email agent · daily status</div>
+      </div>
+      <div class="plan" data-plan="rida_pro" data-amount="297" onclick="selectPlan(this)">
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">$297<small>/mo</small></div>
+        <div class="plan-desc">25M credits · Zoom + Telegram · daily digest</div>
+      </div>
+      <div class="plan" data-plan="rida_agency" data-amount="997" onclick="selectPlan(this)">
+        <div class="plan-name">Agency</div>
+        <div class="plan-price">$997<small>/mo</small></div>
+        <div class="plan-desc">100M credits · multi-client · priority</div>
+      </div>
+    </div>
+
+    <p style="text-align:center;font-size:12px;color:#525252;margin-top:24px">
+      Founding cohort pricing locked for lifetime of active subscription.
+      <a href="https://getrida.work" style="color:#7cf;text-decoration:none">Public site →</a>
+    </p>
+  </div>
+
+  <!-- ============ SCREEN 2: STRIPE CHECKOUT (simulated) ============ -->
+  <div id="screen-checkout" class="hidden">
+    <button class="back-btn" onclick="show('pricing')">← Back</button>
+    <div class="panel">
+      <h2>Checkout</h2>
+      <p>Plan: <strong id="checkout-plan-name" style="color:#fff">—</strong> · <strong id="checkout-plan-price" style="color:#fff">—</strong>/mo</p>
+      <p style="margin-top:16px;font-size:13px;color:#999">In production this redirects to Stripe Checkout. Here we simulate the payment + webhook.</p>
+
+      <div style="margin-top:20px">
+        <label>Email</label>
+        <input type="email" id="checkout-email" value="byron@getrida.work" autocomplete="email">
+        <label>Name</label>
+        <input type="text" id="checkout-name" value="Byron Low" autocomplete="name">
+        <label>Card (test mode)</label>
+        <input type="text" id="checkout-card" value="4242 4242 4242 4242">
+        <p class="note">Test card · no real charge</p>
+      </div>
+
+      <div style="margin-top:20px">
+        <button class="btn btn-primary" style="width:100%" onclick="simulateStripeCheckout()">Pay now</button>
+      </div>
+      <div class="status-msg" id="checkout-status"></div>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 3: WHOP-STYLE ONBOARDING FORM ============ -->
+  <div id="screen-onboarding" class="hidden">
+    <button class="back-btn" onclick="show('checkout')">← Back</button>
+    <div class="panel">
+      <h2>Set up your workspace</h2>
+      <p>Your payment is confirmed. Now let's provision your AI employee. This form connects the platforms you use — your agent operates across all of them.</p>
+
+      <div style="margin-top:20px">
+        <label>Workspace name</label>
+        <input type="text" id="onboard-name" placeholder="Your business or project name" value="Byron Advisory">
+
+        <label>Subdomain (will be {slug}.getrida.work)</label>
+        <input type="text" id="onboard-slug" placeholder="byron" value="byron">
+
+        <label>Phone (for your AI employee's outbound calls)</label>
+        <input type="tel" id="onboard-phone" placeholder="+1 555 123 4567" value="+1 555 0100">
+
+        <label>Timezone</label>
+        <select id="onboard-tz">
+          <option value="America/New_York" selected>America/New_York (Eastern)</option>
+          <option value="America/Los_Angeles">America/Los_Angeles (Pacific)</option>
+          <option value="Europe/London">Europe/London</option>
+          <option value="Asia/Tokyo">Asia/Tokyo</option>
+        </select>
+
+        <label style="margin-top:16px">Connect your platforms</label>
+        <p style="font-size:13px;color:#666;margin-bottom:8px">Click to connect. Your agent will operate across all selected platforms.</p>
+        <div class="platforms">
+          <div class="platform" data-platform="telegram" onclick="togglePlatform(this)">
+            <span class="platform-icon">📨</span>Telegram
+          </div>
+          <div class="platform" data-platform="discord" onclick="togglePlatform(this)">
+            <span class="platform-icon">💬</span>Discord
+          </div>
+          <div class="platform" data-platform="slack" onclick="togglePlatform(this)">
+            <span class="platform-icon">💼</span>Slack
+          </div>
+          <div class="platform" data-platform="whatsapp" onclick="togglePlatform(this)">
+            <span class="platform-icon">📱</span>WhatsApp
+          </div>
+          <div class="platform" data-platform="email" onclick="togglePlatform(this)">
+            <span class="platform-icon">📧</span>Email
+          </div>
+          <div class="platform" data-platform="sms" onclick="togglePlatform(this)">
+            <span class="platform-icon">📞</span>SMS
+          </div>
+          <div class="platform" data-platform="zoom" onclick="togglePlatform(this)">
+            <span class="platform-icon">🎥</span>Zoom
+          </div>
+          <div class="platform" data-platform="gmail" onclick="togglePlatform(this)">
+            <span class="platform-icon">✉️</span>Gmail
+          </div>
+          <div class="platform" data-platform="calendar" onclick="togglePlatform(this)">
+            <span class="platform-icon">📅</span>Calendar
+          </div>
+        </div>
+
+        <div style="margin-top:20px">
+          <button class="btn btn-primary" style="width:100%" onclick="submitOnboarding()">Activate Rida →</button>
+        </div>
+        <div class="status-msg" id="onboard-status"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 4: PROVISIONING ============ -->
+  <div id="screen-provisioning" class="hidden">
+    <div class="panel">
+      <h2><span class="spinner"></span> Provisioning your workspace...</h2>
+      <ol class="steps" id="provision-steps">
+        <li id="step-payment" class="done">Stripe payment confirmed</li>
+        <li id="step-tenant">Creating tenant workspace on Graymantle-2</li>
+        <li id="step-grk">Issuing GRK API key</li>
+        <li id="step-subdomain">Provisioning subdomain</li>
+        <li id="step-platforms">Connecting platforms</li>
+        <li id="step-extension">Configuring extension</li>
+      </ol>
+      <div class="status-msg" id="provision-status">Starting...</div>
+    </div>
+  </div>
+
+  <!-- ============ SCREEN 5: DONE ============ -->
+  <div id="screen-done" class="hidden">
+    <div class="panel" style="text-align:center">
+      <p style="font-size:48px;margin-bottom:16px">✓</p>
+      <h2>Rida is live</h2>
+      <p style="margin-top:12px">Your GRK API key has been provisioned and your extension is configured.</p>
+      <div class="code" id="grk-display" style="margin:20px auto;max-width:100%;text-align:left">grk_...</div>
+      <p style="font-size:13px">Click the GetRida.Work extension icon in your browser toolbar to open Rida.</p>
+      <div style="margin-top:24px">
+        <button class="btn btn-primary" onclick="activateExtension()">Open Rida in sidebar</button>
+        <button class="btn btn-secondary" onclick="location.reload()" style="margin-left:8px">Start over</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>What was set up</h2>
+      <ul class="steps" id="final-steps">
+        <li class="done">Payment confirmed</li>
+        <li class="done">Tenant provisioned on Graymantle-2</li>
+        <li class="done">GRK API key issued and stored in extension</li>
+        <li class="done">Subdomain ready: <span id="final-slug">—</span>.getrida.work</li>
+        <li class="done">Platforms connected: <span id="final-platforms">—</span></li>
+        <li class="active">Click the extension icon to start</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const EXTENSION_ID = 'obofmdbkmindkbmdjkfdmehmddjfnhad';
+const GRAYMANTLE = 'https://app.getrida.work';
+const REAL_GRK_KEY = 'grk_6ab4d5b9df2da6a3e620295c5dccbed1'; // test key for client0
+
+let state = {
+  plan: null,
+  amount: 0,
+  grkKey: null,
+  slug: null,
+  platforms: []
+};
+
+function show(id) {
+  ['pricing','checkout','onboarding','provisioning','done'].forEach(s => {
+    document.getElementById('screen-' + s).classList.toggle('hidden', s !== id);
+  });
+}
+
+function selectPlan(el) {
+  document.querySelectorAll('.plan').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  state.plan = el.dataset.plan;
+  state.amount = parseInt(el.dataset.amount);
+  document.getElementById('checkout-plan-name').textContent = state.plan.replace('rida_', '').replace(/^\w/, c => c.toUpperCase());
+  document.getElementById('checkout-plan-price').textContent = '$' + state.amount;
+  setTimeout(() => show('checkout'), 200);
+}
+
+function simulateStripeCheckout() {
+  const status = document.getElementById('checkout-status');
+  status.className = 'status-msg';
+  status.textContent = 'Processing...';
+  // Simulate Stripe API call → webhook → provisioning
+  setTimeout(() => {
+    show('onboarding');
+  }, 1200);
+}
+
+function togglePlatform(el) {
+  el.classList.toggle('connected');
+  const platform = el.dataset.platform;
+  if (el.classList.contains('connected')) {
+    if (!state.platforms.includes(platform)) state.platforms.push(platform);
+  } else {
+    state.platforms = state.platforms.filter(p => p !== platform);
+  }
+}
+
+async function submitOnboarding() {
+  state.slug = document.getElementById('onboard-slug').value.trim();
+  const status = document.getElementById('onboard-status');
+  if (!state.slug) { status.className = 'status-msg err'; status.textContent = 'Subdomain required.'; return; }
+  if (state.platforms.length === 0) { status.className = 'status-msg err'; status.textContent = 'Connect at least one platform.'; return; }
+
+  status.className = 'status-msg';
+  status.textContent = 'Submitting...';
+
+  // Step 1: Provision GRK key via getrida.work/start API
+  show('provisioning');
+  runProvisioning();
+}
+
+async function runProvisioning() {
+  const status = document.getElementById('provision-status');
+
+  // Step 1: Payment (already confirmed)
+  await delay(600);
+  document.getElementById('step-tenant').className = 'active';
+  status.textContent = 'Creating tenant workspace on Graymantle-2...';
+  await delay(800);
+
+  // Step 2: Provision GRK key
+  try {
+    const r = await fetch(`${GRAYMANTLE}/api/v1/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: document.getElementById('checkout-email').value })
+    });
+    const d = await r.json();
+    if (d.success) {
+      state.grkKey = d.api_key || REAL_GRK_KEY;
+    } else {
+      state.grkKey = REAL_GRK_KEY; // fallback for mock
+    }
+  } catch (e) {
+    // API may fail on email send — fall back to the live test key
+    state.grkKey = REAL_GRK_KEY;
+  }
+
+  document.getElementById('step-tenant').className = 'done';
+  document.getElementById('step-grk').className = 'active';
+  status.textContent = `GRK key: ${state.grkKey.slice(0, 20)}...`;
+  await delay(600);
+
+  // Step 3: Subdomain provisioning
+  document.getElementById('step-grk').className = 'done';
+  document.getElementById('step-subdomain').className = 'active';
+  status.textContent = `Provisioning subdomain: ${state.slug}.getrida.work`;
+  await delay(600);
+
+  // Step 4: Connecting platforms
+  document.getElementById('step-subdomain').className = 'done';
+  document.getElementById('step-platforms').className = 'active';
+  status.textContent = `Connecting ${state.platforms.length} platform(s): ${state.platforms.join(', ')}`;
+  await delay(800);
+
+  // Step 5: Configure extension
+  document.getElementById('step-platforms').className = 'done';
+  document.getElementById('step-extension').className = 'active';
+  status.textContent = 'Configuring extension with GRK key...';
+
+  try {
+    await chrome.runtime.sendMessage(EXTENSION_ID, {
+      action: 'setAgentConfig',
+      config: {
+        mode: 'paid',
+        providerConfig: { mode: 'rida', provider: 'rida', apiKey: '' },
+        endpoint: GRAYMANTLE,
+        grkKey: state.grkKey
+      }
+    });
+    status.textContent = 'Extension configured. Ready!';
+  } catch (e) {
+    status.textContent = `Extension not detected. GRK key saved — install extension from ~/CompanyOS/repos/getrida-extension/`;
+  }
+
+  await delay(800);
+  show('done');
+  document.getElementById('grk-display').textContent = state.grkKey;
+  document.getElementById('final-slug').textContent = state.slug;
+  document.getElementById('final-platforms').textContent = state.platforms.join(', ');
+}
+
+async function activateExtension() {
+  try {
+    await chrome.runtime.sendMessage(EXTENSION_ID, { action: 'openSidePanel' });
+  } catch (e) {
+    window.open(`chrome-extension://${EXTENSION_ID}/sidepanel.html`, '_blank');
+  }
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// On load: check if extension is installed
+window.addEventListener('load', async () => {
+  try {
+    const resp = await chrome.runtime.sendMessage(EXTENSION_ID, { action: 'ping' });
+    if (resp && resp.ok) {
+      const badge = document.createElement('p');
+      badge.style.cssText = 'text-align:center;margin-top:16px';
+      badge.innerHTML = '<span class="badge badge-green">Extension detected — ready to onboard</span>';
+      document.getElementById('screen-pricing').appendChild(badge);
+    }
+  } catch (e) {
+    const badge = document.createElement('p');
+    badge.style.cssText = 'text-align:center;margin-top:16px';
+    badge.innerHTML = '<span class="badge badge-red">Extension not detected</span><br><span style="font-size:12px;color:#525252">Load unpacked from ~/CompanyOS/repos/getrida-extension/</span>';
+    document.getElementById('screen-pricing').appendChild(badge);
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>GetRida Sandbox</title>
+</head>
+<body>
+<script>
+window.addEventListener('message', async (event) => {
+  if (event.source !== window.parent) return;
+  const { id, code, providers } = event.data;
+  if (!id || !code) return;
+
+  try {
+    const providerFns = {};
+    if (providers) {
+      for (const [name, code] of Object.entries(providers)) {
+        try { providerFns[name] = eval(code); } catch (e) { console.warn('Provider init failed:', name, e); }
+      }
+    }
+
+    const func = new Function('providers', code);
+    const result = await func(providerFns);
+    window.parent.postMessage({ id, ok: true, result: typeof result === 'object' ? JSON.parse(JSON.stringify(result)) : result }, '*');
+  } catch (e) {
+    window.parent.postMessage({ id, ok: false, error: e.message }, '*');
+  }
+});
+</script>
+</body>
+</html>
