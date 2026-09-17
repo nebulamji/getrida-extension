@@ -544,9 +544,11 @@ async function runFirstRunCapabilityScan(DEFAULT_SKILLS) {
 
   const { TOOL_DEFS } = await import('./src/tools/browser-tools.js');
   const { ENVOY_TOOL_DEFS } = await import('./src/tools/envoy-tools.js');
+  const { FULFILLMENT_TOOL_DEFS } = await import('./src/tools/envoy-fulfillment-rails.js');
   const allToolDefs = [
     ...TOOL_DEFS,
     ...ENVOY_TOOL_DEFS,
+    ...FULFILLMENT_TOOL_DEFS,
     { name: 'set_plan', description: 'Set a checklist of 3-6 action steps', params: { steps: 'array' } },
     { name: 'update_plan', description: 'Mark a plan step as done', params: { step_index: 'number' } },
   ];

@@ -92,7 +92,7 @@ function fail(n, d) { failed++; findings.push({n,d}); console.error(`FAIL - ${n}
   const inline = ['set_plan', 'update_plan', 'skill', 'evaluatePage'];
   const dispatchedViaExecuteTool = /executeTool\(tc\.function\.name,\s*args\)/.test(SRC);
   if (!dispatchedViaExecuteTool) { fail('executeTool dispatch present', 'no `executeTool(name, args)` call in runAgentTurn'); return; }
-  const sourceFiles = ['src/tools/browser-tools.js', 'src/tools/envoy-tools.js']
+  const sourceFiles = ['src/tools/browser-tools.js', 'src/tools/envoy-tools.js', 'src/tools/envoy-fulfillment-rails.js']
     .map(f => fs.existsSync(path.join(ROOT, f)) ? fs.readFileSync(path.join(ROOT, f), 'utf8') : '')
     .join('\n');
   const missing = unique.filter(n => {

@@ -118,6 +118,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupCompile();
   setupAgent();
   setupWallet();
+  setupCalendar();
+  setupBookings();
+  setupMeetingsLiveCard();
+  loadClient0Context();
 
   if (saved['getrida_first_run']) {
     renderWelcome(saved['getrida_capabilities'] || {});
@@ -793,4 +797,354 @@ document.getElementById('pfAgentBtn')?.addEventListener('click', () => {
 });
 document.getElementById('pfCompileBtn')?.addEventListener('click', () => {
   document.querySelector('.nav-item[data-view="compile"]')?.click();
+});
+
+// ============================================================================
+// v0.5.0 — Calendar tab, Bookings tab, Meetings live card, Client0 context rail
+// ============================================================================
+
+const WORKER_BASE = "https://hooks.getrida.work";
+const MEETING_STATE_KEY = "getrida_meeting_state";
+const CLIENT0_KEY = "getrida_client0_context";
+const CLIENT0_LOADED_KEY = "getrida_client0_loaded_at";
+const GRK_KEY_NAME = "getrida_grk_key";
+
+async function loadGrkKey() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([GRK_KEY_NAME, 'getrida_wallet', 'getrida_provider_config'], (s) => {
+      if (s[GRK_KEY_NAME]) return resolve(s[GRK_KEY_NAME]);
+      const pc = s['getrida_provider_config'];
+      if (pc?.apiKey && pc.apiKey.startsWith('grk_')) return resolve(pc.apiKey);
+      const w = s['getrida_wallet'];
+      if (w?.sessionToken && w.sessionToken.startsWith('grk_')) return resolve(w.sessionToken);
+      resolve(null);
+    });
+  });
+}
+
+async function workerFetch(path, opts = {}) {
+  const grk = await loadGrkKey();
+  if (!grk) throw new Error("no_grk_key");
+  const headers = { "X-Api-Key": grk, "X-Worker-Client": "extension-v0.5.0", ...opts.headers };
+  const res = await fetch(WORKER_BASE + path, {
+    ...opts,
+    headers: { ...headers, ...(opts.body ? { "Content-Type": "application/json" } : {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  if (res.status === 429) throw new Error("rate_limited");
+  if (res.status === 401 || res.status === 403) throw new Error("auth_required");
+  if (!res.ok) throw new Error("worker_" + res.status);
+  return await res.json();
+}
+
+// ===== S1 — Meetings live card =====
+
+function setupMeetingsLiveCard() {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes[MEETING_STATE_KEY]) {
+      renderMeetingsLiveCard(changes[MEETING_STATE_KEY].newValue);
+    }
+  });
+  chrome.storage.local.get([MEETING_STATE_KEY], (s) => {
+    renderMeetingsLiveCard(s[MEETING_STATE_KEY] || null);
+  });
+  setInterval(() => {
+    chrome.storage.local.get([MEETING_STATE_KEY], (s) => {
+      renderMeetingsLiveCard(s[MEETING_STATE_KEY] || null);
+    });
+  }, 30000);
+}
+
+function renderMeetingsLiveCard(state) {
+  const card = document.getElementById('meetingsLiveCard');
+  const dot = document.getElementById('mlcDot');
+  const label = document.getElementById('mlcLabel');
+  const body = document.getElementById('mlcBody');
+  if (!card || !dot || !label || !body) return;
+  const active = state?.active;
+  if (!active) {
+    card.style.display = (state?.history || []).length ? 'block' : 'none';
+    if ((state?.history || []).length) {
+      dot.className = 'mlc-dot';
+      label.textContent = 'No active meeting';
+      body.innerHTML = `<div>Last: ${escapeHtml((state.history[0].title || state.history[0].platform || 'meeting').slice(0,40))} — <span style="color:#555">${escapeHtml(state.history[0].when || '')}</span></div>`;
+    }
+    return;
+  }
+  card.style.display = 'block';
+  dot.className = 'mlc-dot active';
+  label.textContent = 'Vexa bot dispatched';
+  const link = active.meeting_url ? `<a href="${escapeHtml(active.meeting_url)}" target="_blank" rel="noopener">Join meeting →</a>` : '';
+  body.innerHTML = `<div>${escapeHtml(active.platform || '')} · bot ${escapeHtml(String(active.vexa_bot_id || '?').slice(0,12))}</div>${link}`;
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+// ===== S2 — Calendar tab =====
+
+let calState = { meetings: [], lastFetch: 0 };
+
+function setupCalendar() {
+  document.getElementById('calRefreshBtn')?.addEventListener('click', () => loadCalendar(true));
+  document.getElementById('calWorkspaceSelect')?.addEventListener('change', () => loadCalendar(true));
+  chrome.storage.local.get(['getrida_active_workspace'], (s) => {
+    const sel = document.getElementById('calWorkspaceSelect');
+    if (sel && !sel.options.length) {
+      ['kb','byron','faraji'].forEach(w => {
+        const opt = document.createElement('option');
+        opt.value = w;
+        opt.textContent = w;
+        if (w === (s['getrida_active_workspace'] || 'kb')) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+  });
+  setInterval(() => {
+    if (document.getElementById('view-calendar')?.classList.contains('active')) loadCalendar(false);
+  }, 300000);
+}
+
+async function loadCalendar(force) {
+  const status = document.getElementById('calStatus');
+  const ws = document.getElementById('calWorkspaceSelect')?.value || 'kb';
+  if (!force && Date.now() - calState.lastFetch < 60000) { renderCalendar(); return; }
+  status.textContent = 'Loading meetings…';
+  try {
+    const data = await workerFetch(`/api/companyos/meetings?client_slug=${encodeURIComponent(ws)}&status=scheduled`);
+    calState.meetings = (data.meetings || []).sort((a,b) => (a.scheduled_at || '').localeCompare(b.scheduled_at || ''));
+    calState.lastFetch = Date.now();
+    status.textContent = `Loaded ${calState.meetings.length} meetings.`;
+    renderCalendar();
+    if (data.error) status.textContent = 'Worker error: ' + data.error;
+  } catch (e) {
+    status.textContent = e.message === 'no_grk_key'
+      ? 'Connect your API key in Settings → Wallet.'
+      : (e.message === 'auth_required' ? 'API key rejected. Reconnect.' : 'Error: ' + e.message);
+  }
+}
+
+function renderCalendar() {
+  const today = document.getElementById('calToday');
+  const week = document.getElementById('calWeek');
+  const upcoming = document.getElementById('calUpcoming');
+  const empty = document.getElementById('calEmpty');
+  today.innerHTML = week.innerHTML = upcoming.innerHTML = '';
+  if (!calState.meetings.length) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
+  const endOfDay = new Date(); endOfDay.setHours(23,59,59,999);
+  const endOfWeek = new Date(); endOfWeek.setDate(endOfWeek.getDate() + 7 - endOfWeek.getDay());
+  const todayMs = [], weekMs = [], upcomingMs = [];
+  for (const m of calState.meetings) {
+    const t = new Date(m.scheduled_at || m.scheduledAt || 0).getTime();
+    if (!t) continue;
+    if (t >= startOfDay.getTime() && t <= endOfDay.getTime()) todayMs.push({ m, t });
+    else if (t > endOfDay.getTime() && t <= endOfWeek.getTime()) weekMs.push({ m, t });
+    else if (t > Date.now()) upcomingMs.push({ m, t });
+  }
+  renderCalList(today, todayMs.slice(0, 5));
+  renderCalList(week, weekMs.slice(0, 10));
+  renderCalList(upcoming, upcomingMs.slice(0, 50));
+  if (!todayMs.length && !weekMs.length && !upcomingMs.length) empty.style.display = 'block';
+}
+
+function renderCalList(el, items) {
+  if (!items.length) { el.innerHTML = '<div style="font-size:11px;color:#444;padding:4px;">—</div>'; return; }
+  el.innerHTML = items.map(({ m, t }) => {
+    const time = new Date(t).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const badge = m.transcript_summary ? '<span class="cal-row-badge transcript">transcript</span>' : '<span class="cal-row-badge scheduled">scheduled</span>';
+    const email = m.prospect_email || (m.attendee_emails ? m.attendee_emails.split(',')[0] : '');
+    return `<div class="cal-row" data-meeting-id="${escapeHtml(m.id || '')}"><div class="cal-row-time">${escapeHtml(time)}${badge}</div><div class="cal-row-title">${escapeHtml(m.prospect_name || m.meeting_title || 'Meeting')}</div><div class="cal-row-attendees">${escapeHtml(email)}</div></div>`;
+  }).join('');
+  el.querySelectorAll('.cal-row').forEach(row => {
+    row.addEventListener('click', () => openMeetingBriefing(row.dataset.meetingId));
+  });
+}
+
+async function openMeetingBriefing(id) {
+  if (!id) return;
+  try {
+    const data = await workerFetch(`/api/meetings/${encodeURIComponent(id)}/briefing`).catch(() => null);
+    const modal = document.createElement('div');
+    modal.className = 'cal-modal';
+    modal.innerHTML = `<div class="cal-modal-content"><div class="cal-modal-title">Meeting brief</div><pre style="font-size:11px;color:#aaa;white-space:pre-wrap;max-height:60vh;overflow-y:auto;">${escapeHtml(JSON.stringify(data, null, 2))}</pre><div style="text-align:right;margin-top:12px;"><button class="btn secondary" id="calModalClose">Close</button></div></div>`;
+    document.body.appendChild(modal);
+    document.getElementById('calModalClose').addEventListener('click', () => modal.remove());
+  } catch (e) {
+    console.error('briefing error', e);
+  }
+}
+
+// ===== S3 — Bookings tab =====
+
+let bkState = { meetings: [], lastFetch: 0 };
+
+function setupBookings() {
+  document.getElementById('bkNewBtn')?.addEventListener('click', () => {
+    const f = document.getElementById('bkForm');
+    if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  });
+  document.getElementById('bkRefreshBtn')?.addEventListener('click', () => loadBookings(true));
+  document.getElementById('bkCancelBtn')?.addEventListener('click', () => {
+    const f = document.getElementById('bkForm');
+    if (f) f.style.display = 'none';
+  });
+  document.getElementById('bkSubmitBtn')?.addEventListener('click', submitNewBooking);
+  setInterval(() => {
+    if (document.getElementById('view-bookings')?.classList.contains('active')) loadBookings(false);
+  }, 300000);
+}
+
+async function loadBookings(force) {
+  const status = document.getElementById('bkStatus');
+  const ws = document.getElementById('calWorkspaceSelect')?.value || 'kb';
+  if (!force && Date.now() - bkState.lastFetch < 60000) { renderBookings(); return; }
+  status.textContent = 'Loading bookings…';
+  try {
+    const data = await workerFetch(`/api/companyos/meetings?client_slug=${encodeURIComponent(ws)}`);
+    bkState.meetings = data.meetings || [];
+    bkState.lastFetch = Date.now();
+    status.textContent = `Loaded ${bkState.meetings.length} bookings.`;
+    renderBookings();
+  } catch (e) {
+    status.textContent = e.message === 'no_grk_key'
+      ? 'Connect your API key in Settings → Wallet.'
+      : (e.message === 'auth_required' ? 'API key rejected.' : 'Error: ' + e.message);
+  }
+}
+
+function renderBookings() {
+  const up = document.getElementById('bkUpcoming');
+  const done = document.getElementById('bkCompleted');
+  const empty = document.getElementById('bkEmpty');
+  up.innerHTML = done.innerHTML = '';
+  if (!bkState.meetings.length) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  let upcoming = [], completed = [];
+  const now = Date.now();
+  for (const m of bkState.meetings) {
+    const t = new Date(m.scheduled_at || 0).getTime();
+    if (m.status === 'completed' || m.followup_sent || t < now) completed.push(m);
+    else upcoming.push(m);
+  }
+  renderBkList(up, upcoming, true);
+  renderBkList(done, completed, false);
+  if (!upcoming.length && !completed.length) empty.style.display = 'block';
+}
+
+function renderBkList(el, items, isUpcoming) {
+  if (!items.length) { el.innerHTML = '<div style="font-size:11px;color:#444;padding:4px;">—</div>'; return; }
+  el.innerHTML = items.slice(0, 30).map(m => {
+    const t = new Date(m.scheduled_at || 0);
+    const time = isUpcoming
+      ? t.toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })
+      : t.toLocaleString('en-US', { month:'short', day:'numeric' });
+    const badgeCls = isUpcoming ? 'scheduled' : 'completed';
+    const actions = isUpcoming ? '' :
+      `<div class="bk-row-actions">
+         <button class="btn secondary" data-action="transcript" data-id="${escapeHtml(m.id || '')}">Transcript</button>
+         <button class="btn" data-action="followup" data-id="${escapeHtml(m.id || '')}">Send follow-up</button>
+       </div>`;
+    const transcriptBadge = m.transcript_summary ? '<span class="cal-row-badge transcript">transcript</span>' : '';
+    return `<div class="bk-row"><div class="bk-row-time">${escapeHtml(time)}<span class="bk-row-badge ${badgeCls}">${escapeHtml(m.status || (isUpcoming ? 'scheduled' : 'completed'))}</span>${transcriptBadge}</div><div class="bk-row-name">${escapeHtml(m.prospect_name || m.meeting_title || 'Meeting')}</div><div class="bk-row-email">${escapeHtml(m.prospect_email || m.zoom_join_url || '')}</div>${actions}</div>`;
+  }).join('');
+  el.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => handleBkAction(btn.dataset.action, btn.dataset.id));
+  });
+}
+
+async function handleBkAction(action, id) {
+  try {
+    if (action === 'transcript') {
+      const data = await workerFetch(`/api/companyos/meetings/${encodeURIComponent(id)}/transcript`);
+      const modal = document.createElement('div');
+      modal.className = 'cal-modal';
+      modal.innerHTML = `<div class="cal-modal-content"><div class="cal-modal-title">Transcript</div><pre style="font-size:11px;color:#aaa;white-space:pre-wrap;max-height:60vh;overflow-y:auto;">${escapeHtml(JSON.stringify(data, null, 2))}</pre><div style="text-align:right;margin-top:12px;"><button class="btn secondary" id="calModalClose">Close</button></div></div>`;
+      document.body.appendChild(modal);
+      document.getElementById('calModalClose').addEventListener('click', () => modal.remove());
+    } else if (action === 'followup') {
+      const summary = prompt('Summary text for follow-up email:') || 'Thanks for the meeting. We will follow up shortly.';
+      const data = await workerFetch(`/api/companyos/meetings/${encodeURIComponent(id)}/followup`, {
+        method: 'POST',
+        body: { summary, action_items: [], next_steps: 'I will follow up shortly with next steps.' },
+      });
+      const toast = document.createElement('div');
+      toast.className = 'bk-toast show';
+      toast.textContent = data.ok ? `Follow-up sent.` : `Error: ${data.error || 'unknown'}`;
+      document.getElementById('bkContent')?.prepend(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function submitNewBooking() {
+  const status = document.getElementById('bkStatus');
+  const prospectName = document.getElementById('bkProspectName').value.trim();
+  const prospectEmail = document.getElementById('bkProspectEmail').value.trim();
+  const scheduledAt = document.getElementById('bkScheduledAt').value.trim();
+  const durationMin = parseInt(document.getElementById('bkDuration').value) || 30;
+  const offerKey = document.getElementById('bkOfferKey').value.trim() || 'default';
+  if (!prospectEmail || !scheduledAt) { status.textContent = 'Email + scheduled_at required.'; return; }
+  status.textContent = 'Creating booking…';
+  try {
+    const data = await workerFetch(`/api/companyos/booking/create`, {
+      method: 'POST',
+      body: { offer_id: offerKey, prospect_name: prospectName, prospect_email: prospectEmail, scheduled_at: scheduledAt, duration_min: durationMin },
+    });
+    if (data.ok) {
+      status.textContent = `Booked — meeting ${data.zoom_meeting_id || data.booking_id || ''}.`;
+      document.getElementById('bkForm').style.display = 'none';
+      loadBookings(true);
+    } else {
+      status.textContent = 'Worker error: ' + (data.error || 'unknown');
+    }
+  } catch (e) {
+    status.textContent = e.message === 'auth_required' ? 'API key rejected.' : 'Error: ' + e.message;
+  }
+}
+
+// ===== S4 — Client0 context rail =====
+
+let client0RefreshTimer = null;
+
+async function loadClient0Context() {
+  const grk = await loadGrkKey();
+  if (!grk) return;
+  const ws = document.getElementById('calWorkspaceSelect')?.value || 'kb';
+  try {
+    const data = await workerFetch(`/api/me/client0?workspace=${encodeURIComponent(ws)}`);
+    chrome.storage.local.set({
+      [CLIENT0_KEY]: {
+        workspace: data.workspace,
+        monofile_summary: data.monofile_summary,
+        sequence_log_tail: data.sequence_log_tail,
+        active_offers: data.active_offers,
+      },
+      [CLIENT0_LOADED_KEY]: Date.now(),
+    });
+    if (client0RefreshTimer) clearInterval(client0RefreshTimer);
+    client0RefreshTimer = setInterval(loadClient0Context, 5 * 60 * 1000);
+  } catch (e) {
+    console.log('client0 load failed', e.message);
+  }
+}
+
+// ===== Bootstrap calendar/bookings on tab click =====
+
+document.addEventListener('click', (e) => {
+  const navItem = e.target.closest('.nav-item');
+  if (!navItem) return;
+  const view = navItem.dataset.view;
+  if (view === 'calendar') setTimeout(() => loadCalendar(true), 100);
+  if (view === 'bookings') setTimeout(() => loadBookings(true), 100);
 });

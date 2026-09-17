@@ -81,6 +81,29 @@ function getToolSchemas() {
     { name: 'envoy_receipt_chain', description: 'Read the Revenue Book receipt chain for the current workspace. Today: live a2a/inbox surface; future: full Revenue Book at envoy.getrida.work.', input_schema: { type: 'object', properties: {} } },
     { name: 'envoy_tristate', description: 'Local tristate scorer (+1 authority / 0 null / -1 hedge) for a draft. Standing quality gate on all client-facing copy.', input_schema: { type: 'object', properties: { draft: { type: 'string' } }, required: ['draft'] } },
     { name: 'envoy_identity_resolve', description: 'Resolve the active wallet to a verified identity via the live x402 path. Proves D1 (identity is a platform guarantee).', input_schema: { type: 'object', properties: {} } },
+    // ═══════════════════════════════════════════════════════════════
+    // FULFILLMENT RAILS — Real Envoy API endpoints (not degradation stubs)
+    // ═══════════════════════════════════════════════════════════════
+    { name: 'pipeline_list_stages', description: 'List CRM pipeline stages.', input_schema: { type: 'object', properties: {} } },
+    { name: 'pipeline_create_stage', description: 'Create a new pipeline stage.', input_schema: { type: 'object', properties: { name: { type: 'string' }, slug: { type: 'string' }, position: { type: 'number' }, color: { type: 'string' } }, required: ['name', 'slug'] } },
+    { name: 'pipeline_list_leads', description: 'List leads. Identity enrichment starts at opt-in (website, calendar, email, SMS, LinkedIn).', input_schema: { type: 'object', properties: { stage_id: { type: 'string' }, status: { type: 'string' }, limit: { type: 'number' }, offset: { type: 'number' } } } },
+    { name: 'pipeline_create_lead', description: 'Create a lead. Omniplatform opt-in.', input_schema: { type: 'object', properties: { email: { type: 'string' }, first_name: { type: 'string' }, last_name: { type: 'string' }, company: { type: 'string' }, title: { type: 'string' }, phone: { type: 'string' }, source: { type: 'string' }, stage_id: { type: 'string' } }, required: ['email'] } },
+    { name: 'pipeline_get_lead', description: 'Get a lead by ID.', input_schema: { type: 'object', properties: { lead_id: { type: 'string' } }, required: ['lead_id'] } },
+    { name: 'pipeline_update_lead', description: 'Update a lead.', input_schema: { type: 'object', properties: { lead_id: { type: 'string' }, stage_id: { type: 'string' }, icp_score: { type: 'number' }, status: { type: 'string' } }, required: ['lead_id'] } },
+    { name: 'pipeline_list_opportunities', description: 'List deal opportunities.', input_schema: { type: 'object', properties: { lead_id: { type: 'string' }, limit: { type: 'number' } } } },
+    { name: 'pipeline_create_opportunity', description: 'Create a deal opportunity.', input_schema: { type: 'object', properties: { lead_id: { type: 'string' }, stage: { type: 'string' }, value: { type: 'number' } }, required: ['lead_id'] } },
+    { name: 'pipeline_update_opportunity', description: 'Update a deal opportunity.', input_schema: { type: 'object', properties: { opportunity_id: { type: 'string' }, stage: { type: 'string' }, value: { type: 'number' } }, required: ['opportunity_id'] } },
+    { name: 'sms_list_rails', description: 'List SMS phone numbers.', input_schema: { type: 'object', properties: {} } },
+    { name: 'sms_create_rail', description: 'Provision SMS rail. E.164 format (e.g. +19177408443).', input_schema: { type: 'object', properties: { phone_number_e164: { type: 'string' }, label: { type: 'string' } }, required: ['phone_number_e164'] } },
+    { name: 'sms_list_events', description: 'List SMS messages.', input_schema: { type: 'object', properties: { rail_id: { type: 'string' }, lead_id: { type: 'string' }, direction: { type: 'string' } } } },
+    { name: 'sms_send', description: 'Send SMS via rail.', input_schema: { type: 'object', properties: { rail_id: { type: 'string' }, to_e164: { type: 'string' }, body: { type: 'string' }, lead_id: { type: 'string' } }, required: ['rail_id', 'to_e164', 'body'] } },
+    { name: 'voice_list_rails', description: 'List voice phone numbers.', input_schema: { type: 'object', properties: {} } },
+    { name: 'voice_create_rail', description: 'Provision voice rail.', input_schema: { type: 'object', properties: { phone_number_e164: { type: 'string' }, call_handling: { type: 'string' } }, required: ['phone_number_e164'] } },
+    { name: 'voice_list_calls', description: 'List voice call records.', input_schema: { type: 'object', properties: { rail_id: { type: 'string' }, lead_id: { type: 'string' } } } },
+    { name: 'voice_log_call', description: 'Log a voice call with transcript.', input_schema: { type: 'object', properties: { rail_id: { type: 'string' }, direction: { type: 'string' }, from_e164: { type: 'string' }, to_e164: { type: 'string' }, duration_seconds: { type: 'number' }, transcript_text: { type: 'string' }, lead_id: { type: 'string' } }, required: ['rail_id'] } },
+    { name: 'data_room_list_documents', description: 'List Data Room documents. RBAC: owner/member/viewer.', input_schema: { type: 'object', properties: { limit: { type: 'number' } } } },
+    { name: 'data_room_upload_document', description: 'Upload document to Data Room.', input_schema: { type: 'object', properties: { filename: { type: 'string' }, doc_type: { type: 'string' } }, required: ['filename', 'doc_type'] } },
+    { name: 'data_room_get_document', description: 'Get Data Room document by ID.', input_schema: { type: 'object', properties: { document_id: { type: 'string' } }, required: ['document_id'] } },
   ];
 }
 
@@ -151,8 +174,25 @@ async function runAgentTurn(userMessage, onStream, onToolCall, onToolResult, onP
 
   conversation.push({ role: 'user', content: userMessage });
 
+  // v0.5.0 — Inject client0 context rail into system prompt (per-build employee)
+  let systemPrompt = SYSTEM_PROMPT;
+  try {
+    const ctx = await new Promise((resolve) => {
+      chrome.storage.local.get(['getrida_client0_context'], (s) => resolve(s['getrida_client0_context'] || null));
+    });
+    if (ctx && (ctx.monofile_summary || ctx.sequence_log_tail || (ctx.active_offers && ctx.active_offers.length))) {
+      const ws = ctx.workspace || {};
+      const offers = (ctx.active_offers || []).map(o => `- ${o.offer_name || o.offer_key || ''} [${o.status || ''}]`).join('\n');
+      systemPrompt += `\n\n## Workspace context (v0.5.0 rail)\n`;
+      if (ws.label || ws.slug) systemPrompt += `**Workspace:** ${ws.label || ws.slug}${ws.agent_identity ? ` · agent: ${ws.agent_identity}` : ''}${ws.agent_inbox ? ` · inbox: ${ws.agent_inbox}` : ''}\n`;
+      if (ctx.monofile_summary) systemPrompt += `\n### Monofile summary\n${ctx.monofile_summary.slice(0, 1500)}\n`;
+      if (ctx.sequence_log_tail) systemPrompt += `\n### Recent activity (sequence log)\n${ctx.sequence_log_tail.slice(-2000)}\n`;
+      if (offers) systemPrompt += `\n### Active offers\n${offers}\n`;
+    }
+  } catch {}
+
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: systemPrompt },
     ...conversation,
   ];
 
@@ -205,6 +245,9 @@ async function runAgentTurn(userMessage, onStream, onToolCall, onToolResult, onP
         } else if (tc.function.name.startsWith('envoy_')) {
           const { executeEnvoyTool } = await import('./envoy-tools.js');
           result = await executeEnvoyTool(tc.function.name, args);
+        } else if (tc.function.name.startsWith('pipeline_') || tc.function.name.startsWith('sms_') || tc.function.name.startsWith('voice_') || tc.function.name.startsWith('data_room_')) {
+          const { executeFulfillmentTool } = await import('./envoy-fulfillment-rails.js');
+          result = await executeFulfillmentTool(tc.function.name, args);
         } else {
           const { executeTool } = await import('./browser-tools.js');
           result = await executeTool(tc.function.name, args);

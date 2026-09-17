@@ -19,6 +19,51 @@ textarea, input, select { width: 100%; background: #0e0e0e; border: 1px solid #2
 textarea:focus, input:focus, select:focus { outline: none; border-color: #4a9; }
 label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: uppercase; display: block; margin-bottom: 4px; }
 
+/* ===== v0.5.0 Meetings live card ===== */
+.meetings-live-card { background: #1a1a1a; border-radius: 6px; padding: 10px 12px; margin: 8px 12px; border-left: 3px solid #4a9; }
+.mlc-status { display: flex; align-items: center; gap: 8px; }
+.mlc-dot { width: 8px; height: 8px; border-radius: 50%; background: #555; display: inline-block; }
+.mlc-dot.active { background: #4a9; box-shadow: 0 0 6px #4a9; }
+.mlc-dot.error { background: #c44; }
+.mlc-body { font-size: 11px; color: #aaa; margin-top: 6px; padding-left: 16px; }
+.mlc-body a { color: #4a9; text-decoration: none; }
+
+/* ===== v0.5.0 Calendar tab ===== */
+.cal-header { display: flex; gap: 6px; margin-bottom: 8px; }
+.cal-section { margin-bottom: 14px; }
+.cal-section-title { font-size: 10px; color: #888; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; padding-left: 4px; }
+.cal-list { display: flex; flex-direction: column; gap: 4px; }
+.cal-row { background: #141414; border: 1px solid #222; border-radius: 4px; padding: 8px 10px; cursor: pointer; }
+.cal-row:hover { border-color: #4a9; }
+.cal-row-time { font-size: 11px; color: #4a9; font-variant-numeric: tabular-nums; }
+.cal-row-title { font-size: 13px; color: #ddd; margin-top: 2px; }
+.cal-row-attendees { font-size: 10px; color: #666; margin-top: 2px; }
+.cal-row-badge { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 8px; margin-left: 6px; }
+.cal-row-badge.transcript { background: #0a1a12; color: #4a9; }
+.cal-row-badge.scheduled { background: #1a1a12; color: #888; }
+.cal-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+.cal-modal-content { background: #141414; border: 1px solid #333; border-radius: 6px; padding: 16px; max-width: 90%; max-height: 80vh; overflow-y: auto; }
+.cal-modal-title { font-size: 14px; color: #ddd; margin-bottom: 12px; }
+
+/* ===== v0.5.0 Bookings tab ===== */
+.bk-header { display: flex; gap: 6px; margin-bottom: 8px; }
+.bk-section { margin-bottom: 14px; }
+.bk-section-title { font-size: 10px; color: #888; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; padding-left: 4px; }
+.bk-list { display: flex; flex-direction: column; gap: 4px; }
+.bk-row { background: #141414; border: 1px solid #222; border-radius: 4px; padding: 8px 10px; }
+.bk-row-time { font-size: 11px; color: #4a9; font-variant-numeric: tabular-nums; }
+.bk-row-name { font-size: 13px; color: #ddd; margin-top: 2px; }
+.bk-row-email { font-size: 10px; color: #666; margin-top: 2px; }
+.bk-row-actions { margin-top: 6px; display: flex; gap: 4px; }
+.bk-row-actions button { flex: 1; font-size: 10px; padding: 4px 6px; }
+.bk-row-badge { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 8px; margin-left: 6px; }
+.bk-row-badge.completed { background: #1a1a12; color: #888; }
+.bk-row-badge.scheduled { background: #0a1a12; color: #4a9; }
+.bk-form { margin-top: 12px; padding: 12px; background: #111; border-radius: 6px; border: 1px solid #222; }
+.bk-form-title { font-size: 13px; color: #ddd; margin-bottom: 12px; }
+.bk-toast { background: #0a1a12; color: #4a9; border-radius: 4px; padding: 8px; font-size: 11px; margin: 8px 0; display: none; }
+.bk-toast.show { display: block; }
+
 .btn { padding: 10px 16px; font-size: 12px; font-weight: 600; cursor: pointer; border-radius: 4px; border: 1px solid #4a9; background: #0a1a12; color: #4a9; }
 .btn:disabled { opacity: 0.3; }
 .btn.danger { border-color: #c44; background: #1a0a0a; color: #c44; }
@@ -151,8 +196,18 @@ label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: upp
   <div class="nav-item" data-view="profile">Profile</div>
   <div class="nav-item active" data-view="compile">Compile</div>
   <div class="nav-item" data-view="agent">Agent</div>
+  <div class="nav-item" data-view="calendar">Calendar</div>
+  <div class="nav-item" data-view="bookings">Bookings</div>
   <div class="nav-item" data-view="wallet">Wallet</div>
   <div class="nav-item" data-view="settings">Settings</div>
+</div>
+
+<div id="meetingsLiveCard" class="meetings-live-card" style="display:none;">
+  <div class="mlc-status">
+    <span id="mlcDot" class="mlc-dot"></span>
+    <span id="mlcLabel">No active meeting</span>
+  </div>
+  <div id="mlcBody" class="mlc-body"></div>
 </div>
 
 <div class="view" id="view-profile">
@@ -240,6 +295,67 @@ label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: upp
 </div>
 
 <div class="view view-settings" id="view-settings">
+
+<!-- ===== v0.5.0 Calendar Tab ===== -->
+<div class="view view-calendar" id="view-calendar">
+  <div class="cal-header">
+    <button class="btn secondary" id="calRefreshBtn" style="flex:1;font-size:11px;padding:6px;">↻ Refresh</button>
+    <select id="calWorkspaceSelect" style="flex:1;font-size:11px;padding:6px;background:#222;color:#aaa;border:1px solid #333;"></select>
+  </div>
+  <div id="calStatus" style="font-size:11px;color:#555;margin:8px 0;"></div>
+  <div id="calContent">
+    <div class="cal-section">
+      <div class="cal-section-title">Today</div>
+      <div id="calToday" class="cal-list">Loading…</div>
+    </div>
+    <div class="cal-section">
+      <div class="cal-section-title">This week</div>
+      <div id="calWeek" class="cal-list"></div>
+    </div>
+    <div class="cal-section">
+      <div class="cal-section-title">Upcoming</div>
+      <div id="calUpcoming" class="cal-list"></div>
+    </div>
+    <div class="cal-empty" id="calEmpty" style="display:none;">No meetings yet. The employee watches your calendar and Vexa joins the call.</div>
+  </div>
+</div>
+
+<!-- ===== v0.5.0 Bookings Tab ===== -->
+<div class="view view-bookings" id="view-bookings">
+  <div class="bk-header">
+    <button class="btn" id="bkNewBtn" style="flex:1;font-size:11px;padding:6px;">+ New Booking</button>
+    <button class="btn secondary" id="bkRefreshBtn" style="flex:1;font-size:11px;padding:6px;">↻ Refresh</button>
+  </div>
+  <div id="bkStatus" style="font-size:11px;color:#555;margin:8px 0;"></div>
+  <div id="bkContent">
+    <div class="bk-section">
+      <div class="bk-section-title">Upcoming</div>
+      <div id="bkUpcoming" class="bk-list">Loading…</div>
+    </div>
+    <div class="bk-section">
+      <div class="bk-section-title">Completed</div>
+      <div id="bkCompleted" class="bk-list"></div>
+    </div>
+    <div class="bk-empty" id="bkEmpty" style="display:none;">No bookings yet. Create one to start.</div>
+  </div>
+  <div id="bkForm" class="bk-form" style="display:none;">
+    <div class="bk-form-title">New Booking</div>
+    <label>Prospect name</label>
+    <input id="bkProspectName" placeholder="Jane Smith" />
+    <label>Prospect email</label>
+    <input id="bkProspectEmail" placeholder="jane@example.com" type="email" />
+    <label>Scheduled at (ISO)</label>
+    <input id="bkScheduledAt" placeholder="2026-09-15T14:00:00Z" />
+    <label>Duration (minutes)</label>
+    <input id="bkDuration" type="number" value="30" />
+    <label>Offer key</label>
+    <input id="bkOfferKey" placeholder="default" />
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <button class="btn" id="bkSubmitBtn" style="flex:1;">Book</button>
+      <button class="btn secondary" id="bkCancelBtn" style="flex:1;">Cancel</button>
+    </div>
+  </div>
+</div>
   <div class="setting"><label>Compile Endpoint</label><input id="settingsEndpoint" value="https://getrida.work/api/v1/compile" /></div>
   <div class="setting"><label>Mode</label><select id="settingsMode"><option value="free">Free (Compiler only)</option><option value="paid">Agent (requires API key)</option></select></div>
   <div id="paidSettings" style="display:none;">
