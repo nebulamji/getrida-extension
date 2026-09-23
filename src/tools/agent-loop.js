@@ -81,6 +81,8 @@ function getToolSchemas() {
     { name: 'envoy_receipt_chain', description: 'Read the Revenue Book receipt chain for the current workspace. Today: live a2a/inbox surface; future: full Revenue Book at envoy.getrida.work.', input_schema: { type: 'object', properties: {} } },
     { name: 'envoy_tristate', description: 'Local tristate scorer (+1 authority / 0 null / -1 hedge) for a draft. Standing quality gate on all client-facing copy.', input_schema: { type: 'object', properties: { draft: { type: 'string' } }, required: ['draft'] } },
     { name: 'envoy_identity_resolve', description: 'Resolve the active wallet to a verified identity via the live x402 path. Proves D1 (identity is a platform guarantee).', input_schema: { type: 'object', properties: {} } },
+    { name: 'memory_recall', description: 'Recall durable agent memories from the server-side envoy_agent_memories store, tenant-scoped. Call with entities[] to match (e.g. ["bloomberg", "energy"]); or omit entities + use since/limit for a recent-N view. Memories written by any surface (extension, email, SMS, portal) are visible from any other — that is the whole point of this layer.', input_schema: { type: 'object', properties: { entities: { type: 'array', items: { type: 'string' }, description: 'Lowercase entity strings to match (company names, topics, tools).' }, limit: { type: 'number', description: 'Max results (default 25, max 100).' }, since: { type: 'string', description: 'ISO timestamp — only memories after this time.' } } } },
+    { name: 'memory_remember', description: 'Persist a durable agent memory to envoy_agent_memories, tenant-scoped. Use for: a conversation the user wants to keep, a research thread worth returning to, an inbox reply worth connecting to a future task, a page visit worth indexing. Entities let the recall tool find this memory later. surface defaults to "extension"; the parameter is real for cross-surface callers (e.g. an email-reply handler would write surface="email").', input_schema: { type: 'object', properties: { summary: { type: 'string', description: 'Human-readable summary — what is worth remembering.' }, surface: { type: 'string', enum: ['extension', 'email', 'sms', 'portal', 'system'] }, kind: { type: 'string', enum: ['conversation', 'receipt', 'page_visit', 'inbound_reply', 'outbound_send', 'system_event'] }, source_ref: { type: 'string', description: 'Opaque source identifier — URL, thread id, message id, etc.' }, entities: { type: 'array', items: { type: 'string' }, description: 'Lowercase entity strings to index this memory under.' }, metadata: { type: 'object', description: 'Arbitrary JSON metadata (optional).' } }, required: ['summary'] } },
     // ═══════════════════════════════════════════════════════════════
     // FULFILLMENT RAILS — Real Envoy API endpoints (not degradation stubs)
     // ═══════════════════════════════════════════════════════════════
@@ -245,6 +247,13 @@ async function runAgentTurn(userMessage, onStream, onToolCall, onToolResult, onP
         } else if (tc.function.name.startsWith('envoy_')) {
           const { executeEnvoyTool } = await import('./envoy-tools.js');
           result = await executeEnvoyTool(tc.function.name, args);
+        } else if (tc.function.name === 'memory_recall' || tc.function.name === 'memory_remember') {
+          // Feature 3 of the Build Spec: durable cross-surface agent memory.
+          // Calls the envoy endpoints added in this same commit
+          // (POST /api/envoy/agent-memory/{remember,recall}). Same grk_
+          // auth chain as every other envoy_ tool.
+          const { executeAgentMemoryTool } = await import('./agent-memory.js');
+          result = await executeAgentMemoryTool(tc.function.name, args);
         } else if (tc.function.name.startsWith('pipeline_') || tc.function.name.startsWith('sms_') || tc.function.name.startsWith('voice_') || tc.function.name.startsWith('data_room_')) {
           const { executeFulfillmentTool } = await import('./envoy-fulfillment-rails.js');
           result = await executeFulfillmentTool(tc.function.name, args);
