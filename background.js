@@ -29,7 +29,45 @@ chrome.runtime.onInstalled.addListener(async () => {
   for (const skill of DEFAULT_SKILLS) {
     try { await registerUserScript(skill); } catch (e) { /* userScripts may not be available in all contexts */ }
   }
+  await maybeRunFirstAgentDemo();
 });
+
+/**
+ * Feature 2 of the Agent Employee Build Spec (frontier-build-spec/1.25):
+ * On first authenticated load post-onboarding, fire ONE real agent turn
+ * without the user having to type anything — proves to a new client that
+ * the agent is working (a receipted tool call lands in
+ * chrome.storage.local['getrida_agent_receipts'], proving the round-trip).
+ *
+ * Gate conditions:
+ *   - grk_ key is set (client has completed onboarding and has a real tenant)
+ *   - getrida_first_run is true (runFirstRunCapabilityScan has just run)
+ *   - getrida_demo_completed is NOT set (one-shot — won't fire again)
+ *
+ * The demo message is intentionally a single tool-call: "List my pipeline
+ * stages" — a `pipeline_list_stages` call, which is a real envoy call that
+ * returns real (or empty-but-real) data for the tenant. We deliberately
+ * don't script a fake conversation here; the receipt itself is the demo.
+ */
+async function maybeRunFirstAgentDemo() {
+  try {
+    const data = await chrome.storage.local.get(['getrida_grk_key', 'getrida_first_run', 'getrida_demo_completed']);
+    if (!data.getrida_grk_key) return;             // no client identity yet
+    if (data.getrida_demo_completed) return;      // already demonstrated
+    if (!data.getrida_first_run) return;          // capability scan hasn't run yet
+
+    // Mark completed BEFORE firing so any error path doesn't re-trigger
+    // the demo on every reload. Receipts (in agent-receipts.js) carry the
+    // proof regardless of what happens in the agent turn itself.
+    await chrome.storage.local.set({ getrida_demo_completed: Date.now() });
+
+    const demoMessage = "Welcome to your Rida workspace. Run a single command: list my current pipeline stages so I can see what's set up.";
+    // Fire asynchronously; do NOT block onInstalled on the agent round-trip.
+    handleAgentRun(demoMessage, null);
+  } catch (e) {
+    console.error('[demo] failed to launch:', e.message);
+  }
+}
 
 chrome.storage.onChanged.addListener(async (changes, area) => {
   if (area !== 'local' || !changes.getrida_skills) return;
