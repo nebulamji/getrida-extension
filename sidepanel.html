@@ -196,6 +196,7 @@ label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: upp
   <div class="nav-item" data-view="profile">Profile</div>
   <div class="nav-item active" data-view="compile">Compile</div>
   <div class="nav-item" data-view="agent">Agent</div>
+  <div class="nav-item" data-view="integrations" id="integrationsNavItem">Integrations<span id="integrationsNavBadge" style="display:none;margin-left:6px;background:#4a9;color:#fff;font-size:9px;padding:1px 5px;border-radius:6px;"></span></div>
   <div class="nav-item" data-view="calendar">Calendar</div>
   <div class="nav-item" data-view="bookings">Bookings</div>
   <div class="nav-item" data-view="wallet">Wallet</div>
@@ -242,6 +243,14 @@ label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: upp
   <button class="btn" id="sideCompileBtn" style="margin-top:8px;">COMPILE TABS</button>
   <div id="sideStatus" style="font-size:11px;color:#555;margin-top:8px;"></div>
   <div id="sideResult" style="margin-top:8px;font-size:12px;white-space:pre-wrap;max-height:300px;overflow-y:auto;"></div>
+</div>
+
+<div class="view view-integrations" id="view-integrations">
+  <div id="integrationsLoading" style="padding:20px;text-align:center;color:#888;font-size:12px;">Loading integrations…</div>
+  <div id="integrationsList" style="display:none;padding:12px;"></div>
+  <div id="integrationsEmpty" style="display:none;padding:40px 20px;text-align:center;color:#888;font-size:12px;">
+    Connect integrations in the <a href="#" id="integrationsOpenPortal" style="color:#4a9;text-decoration:underline;">portal</a>.
+  </div>
 </div>
 
 <div class="view view-agent" id="view-agent">

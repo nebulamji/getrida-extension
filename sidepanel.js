@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (item.dataset.view === 'wallet') { loadWalletView(); renderWidgetState(); }
       if (item.dataset.view === 'agent') renderAgentContext();
       if (item.dataset.view === 'profile') renderProfile();
+      if (item.dataset.view === 'integrations') loadIntegrationsView();
     });
   });
 
@@ -1148,3 +1149,139 @@ document.addEventListener('click', (e) => {
   if (view === 'calendar') setTimeout(() => loadCalendar(true), 100);
   if (view === 'bookings') setTimeout(() => loadBookings(true), 100);
 });
+
+// ===== Feature 5 (Build Spec): Integrations tab =====
+//
+// Per-tenant integration connection state, sourced from the same
+// /integrations endpoint the portal reads. Configured in the portal
+// (where the OAuth redirect lands); rendered read-only here so the
+// extension and portal stay in sync without two separate auth flows.
+//
+// The agent's awareness of these integrations (via
+// getrida_integrations_context injected into system prompt) is a
+// separate, follow-up feature — not built here. This commit ships
+// the human-visible half (UI tab + nav badge) only.
+
+let integrationsViewCache = null;
+let integrationsViewLoadedAt = 0;
+
+async function loadIntegrationsView(force = false) {
+  const loadingEl = document.getElementById('integrationsLoading');
+  const listEl = document.getElementById('integrationsList');
+  const emptyEl = document.getElementById('integrationsEmpty');
+  const badgeEl = document.getElementById('integrationsNavBadge');
+
+  // 30s in-memory cache — clicking away and back shouldn't re-fetch.
+  if (!force && integrationsViewCache && (Date.now() - integrationsViewLoadedAt) < 30_000) {
+    renderIntegrationsView(integrationsViewCache);
+    return;
+  }
+
+  if (loadingEl) loadingEl.style.display = '';
+  if (listEl) listEl.style.display = 'none';
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  try {
+    const data = await chrome.storage.local.get(['getrida_endpoint', 'getrida_grk_key']);
+    const endpoint = (data.getrida_endpoint || 'https://app.getrida.work').replace(/\/+$/, '');
+    const grk = data.getrida_grk_key || '';
+    if (!grk) {
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (emptyEl) {
+        emptyEl.style.display = '';
+        emptyEl.innerHTML = 'Sign in first to see your tenant\'s integrations.';
+      }
+      if (badgeEl) badgeEl.style.display = 'none';
+      return;
+    }
+    const res = await fetch(`${endpoint}/api/envoy/integrations`, {
+      method: 'GET',
+      headers: { 'authorization': `Bearer ${grk}` },
+    });
+    if (!res.ok) {
+      throw new Error(`integrations list failed: HTTP ${res.status}`);
+    }
+    const body = await res.json();
+    const integrations = body?.result?.integrations || [];
+    integrationsViewCache = integrations;
+    integrationsViewLoadedAt = Date.now();
+    renderIntegrationsView(integrations);
+  } catch (e) {
+    if (loadingEl) {
+      loadingEl.style.display = 'none';
+      loadingEl.textContent = `Failed to load integrations: ${e.message}`;
+    }
+  }
+}
+
+function renderIntegrationsView(integrations) {
+  const loadingEl = document.getElementById('integrationsLoading');
+  const listEl = document.getElementById('integrationsList');
+  const emptyEl = document.getElementById('integrationsEmpty');
+  const badgeEl = document.getElementById('integrationsNavBadge');
+
+  if (loadingEl) loadingEl.style.display = 'none';
+
+  if (!integrations || integrations.length === 0) {
+    if (listEl) listEl.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = '';
+    if (badgeEl) badgeEl.style.display = 'none';
+    return;
+  }
+
+  // Aggregate status counts for the nav badge.
+  const connected = integrations.filter(i => i.status === 'connected').length;
+  const errored = integrations.filter(i => i.status === 'error').length;
+  if (badgeEl) {
+    if (connected + errored > 0) {
+      badgeEl.textContent = `${connected}` + (errored > 0 ? `/${errored}!` : '');
+      badgeEl.style.display = '';
+      badgeEl.title = `${connected} connected` + (errored > 0 ? `, ${errored} error` : '');
+    } else {
+      badgeEl.style.display = 'none';
+    }
+  }
+
+  // Render rows. Read-only here — the user configures in the portal.
+  const rows = integrations.map(i => {
+    const status = i.status || 'not_configured';
+    const dot = status === 'connected' ? '#4a9'
+              : status === 'error' ? '#f44'
+              : status === 'disconnected' ? '#888'
+              : '#555';
+    const displayStatus = status === 'not_configured' ? 'not configured' : status;
+    const verify = i.last_verified_at ? ` · last verified ${i.last_verified_at.slice(0,10)}` : '';
+    const error = i.last_error ? ` · ${i.last_error}` : '';
+    return `
+      <div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid #1a1f26;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dot};margin-right:10px;flex-shrink:0;"></span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:#ddd;">${i.display_name || i.integration_key}</div>
+          <div style="font-size:11px;color:#888;margin-top:2px;">
+            ${displayStatus}${verify}${error}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  if (listEl) {
+    listEl.style.display = '';
+    listEl.innerHTML = `
+      <div style="padding:0 4px 12px 4px;font-size:11px;color:#888;">
+        Configure integrations in the <a href="#" id="integrationsOpenPortalLink" style="color:#4a9;text-decoration:underline;">portal</a>. Connection state shown here mirrors the same grk_-authed source of truth.
+      </div>
+      ${rows}
+    `;
+    // Wire the portal link to the portal's integrations view (best-effort,
+    // based on the existing PORTAL_URL convention if set; otherwise opens the apex).
+    const portalLink = document.getElementById('integrationsOpenPortalLink');
+    if (portalLink) {
+      portalLink.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const portalBase = 'https://envoy.getrida.work';
+        chrome.tabs.create({ url: `${portalBase}/integrations` }).catch(() => {});
+      });
+    }
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+}
