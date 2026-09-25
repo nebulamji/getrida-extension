@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "minimum_chrome_version": "120",
   "name": "GetRida.Work",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Compile your tabs into mission reports. Wallet login. Agentic workspace. Upgrade to full metaverse.",
   "permissions": [
     "activeTab",

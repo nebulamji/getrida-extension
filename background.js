@@ -377,11 +377,14 @@ async function handleCompile(mission, walletAddress, walletChain) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 120000);
 
+    const { getrida_grk_key: grkKey } = await chrome.storage.local.get(['getrida_grk_key']);
+    if (!grkKey) throw new Error('Add your GetRida key in Settings to compile tabs.');
+
     let res;
     try {
       res = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${grkKey}` },
         body: JSON.stringify(body),
         signal: controller.signal,
       });
@@ -393,6 +396,8 @@ async function handleCompile(mission, walletAddress, walletChain) {
     clearTimeout(timeout);
 
     const data = await res.json();
+    if (res.status === 402) throw new Error('No credits left. Choose a plan in your GetRida Wallet (portal-beta.getrida.work).');
+    if (res.status === 401) throw new Error('Your GetRida key was not accepted. Check it in Settings.');
 
     if (data.ok) {
       const noiseUrls = parseNoiseTabs(data.monofile_preview || '');
