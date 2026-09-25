@@ -81,7 +81,48 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
   }
 });
 
+// ── Meet notes → the employee's post-call pipeline ─────────────────────────
+async function sendMeetTranscript(payload) {
+  const st = await chrome.storage.local.get(['getrida_grk_key', 'getrida_endpoint', 'getrida_meet_sent']);
+  if (!st.getrida_grk_key || !payload?.transcript) return { ok: false, error: 'no_key_or_transcript' };
+  const sentKey = `${payload.meeting_at || ''}|${payload.title || ''}`;
+  if ((st.getrida_meet_sent || []).includes(sentKey)) return { ok: true, duplicate: true };
+  const raw = (st.getrida_endpoint || '').replace(/\/api\/v1\/compile$/, '');
+  const base = raw && !/^https:\/\/getrida\.work$/.test(raw) ? new URL(raw).origin : 'https://app.getrida.work';
+  const res = await fetch(`${base}/api/envoy/meetings/transcript`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${st.getrida_grk_key}` },
+    body: JSON.stringify(payload),
+  }).catch(() => null);
+  if (res && (res.status === 202 || res.ok)) {
+    await chrome.storage.local.set({ getrida_meet_sent: [...(st.getrida_meet_sent || []).slice(-50), sentKey] });
+    await chrome.storage.local.remove('getrida_meet_draft');
+    return { ok: true };
+  }
+  return { ok: false, status: res?.status || 0 };
+}
+
+// If the Meet tab closes before the page can say goodbye, send what it saved.
+chrome.tabs.onRemoved.addListener(async () => {
+  const { getrida_meet_draft: d } = await chrome.storage.local.get('getrida_meet_draft');
+  if (!d?.lines?.length) return;
+  const transcript = d.lines.map((l) => `${l.speaker}: ${l.text}`).join('\n');
+  if (transcript.length < 40) return;
+  await sendMeetTranscript({
+    title: (d.title || 'Google Meet call').replace(/^Meet\s*[-–]\s*/i, '').slice(0, 200),
+    transcript,
+    attendees: [...new Set(d.lines.map((l) => l.speaker))].map((name) => ({ name })),
+    meeting_at: d.startedAt,
+    source: 'google_meet_extension',
+  });
+});
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.action === 'meet_transcript') {
+    sendMeetTranscript(msg.payload).then(sendResponse);
+    return true;
+  }
+
   if (msg.action === 'getState') {
     chrome.storage.local.get(STATE_KEY).then(data => sendResponse(data[STATE_KEY] || DEFAULT_STATE));
     return true;
