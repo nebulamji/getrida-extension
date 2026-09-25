@@ -150,6 +150,14 @@ label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: upp
 </head>
 <body>
 
+<div id="grkConnectCard" style="display:none;margin:12px;padding:14px;border:1px solid #2a6947;border-radius:10px;background:#0f1a14;">
+  <div style="font-weight:700;font-size:13px;margin-bottom:4px;">Connect your GetRida key</div>
+  <div style="font-size:11px;color:#9aa;margin-bottom:8px;">Paste the <code>grk_</code> key from your welcome email or the portal. It stays in this browser.</div>
+  <input type="password" id="grkKeyInput" placeholder="grk_…" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;margin-bottom:8px;" />
+  <button class="btn" id="grkKeySave" style="width:100%;">Connect</button>
+  <div id="grkKeyStatus" style="font-size:11px;margin-top:8px;"></div>
+</div>
+
 <div id="welcomeView" style="display:none;padding:24px;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
   <div style="max-width:340px;width:100%;">
     <h1 style="font-size:22px;color:#ccc;margin-bottom:4px;font-weight:700;">GetRida Agent</h1>
@@ -365,6 +373,10 @@ label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: upp
     </div>
   </div>
 </div>
+  <div class="setting"><label>GetRida key</label>
+    <div style="display:flex;gap:6px;"><input type="password" id="settingsGrkKey" placeholder="grk_…" autocomplete="off" spellcheck="false" style="flex:1;" /><button class="btn secondary" id="settingsGrkSave">Save</button></div>
+    <div id="settingsGrkStatus" style="font-size:11px;color:#555;margin-top:4px;"></div>
+  </div>
   <div class="setting"><label>Compile Endpoint</label><input id="settingsEndpoint" value="https://getrida.work/api/v1/compile" /></div>
   <div class="setting"><label>Mode</label><select id="settingsMode"><option value="free">Free (Compiler only)</option><option value="paid">Agent (requires API key)</option></select></div>
   <div id="paidSettings" style="display:none;">

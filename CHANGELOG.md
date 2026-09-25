@@ -1,4 +1,8 @@
 # Changelog
+## 0.4.2 — 2026-09-24
+
+- New "Connect your GetRida key" card and a GetRida key field in Settings. The key is checked against your account before it is saved.
+
 ## 0.4.1 — 2026-09-24
 
 - Works with keys from getrida.work/start and from Stripe checkout (backend now accepts both).

@@ -1285,3 +1285,69 @@ function renderIntegrationsView(integrations) {
   }
   if (emptyEl) emptyEl.style.display = 'none';
 }
+
+
+// ===== GetRida key: connect / change =====
+// The key authenticates every GetRida call (agent, memory, integrations, calendar).
+// It is verified against the account before it is saved, and never leaves this browser
+// except as the Authorization header to GetRida.
+const GRK_FORMAT = /^grk_[a-f0-9]{16,64}$/;
+
+async function grkAgentBase() {
+  const st = await chrome.storage.local.get(['getrida_endpoint']);
+  const raw = (st['getrida_endpoint'] || '').replace(/\/api\/v1\/compile$/, '').replace(/\/+$/, '');
+  return raw && !/^https:\/\/getrida\.work$/.test(raw) ? raw : 'https://app.getrida.work';
+}
+
+async function verifyAndSaveGrk(raw, statusEl) {
+  const key = String(raw || '').trim();
+  if (!GRK_FORMAT.test(key)) {
+    statusEl.style.color = '#e88'; statusEl.textContent = 'That does not look like a GetRida key (it starts with grk_).';
+    return false;
+  }
+  statusEl.style.color = '#9aa'; statusEl.textContent = 'Checking…';
+  try {
+    const res = await fetch(`${await grkAgentBase()}/api/agent/status`, { headers: { authorization: `Bearer ${key}` } });
+    if (res.status === 401 || res.status === 403) {
+      statusEl.style.color = '#e88'; statusEl.textContent = 'This key was not accepted. Check it, or get a new one at getrida.work/start.';
+      return false;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const body = await res.json().catch(() => ({}));
+    await chrome.storage.local.set({ [GRK_KEY_NAME]: key });
+    statusEl.style.color = '#4a9'; statusEl.textContent = `Connected${body.tenant_id ? ' — ' + body.tenant_id.replace(/^(edge|stripe)_/, '') : ''}.`;
+    return true;
+  } catch (e) {
+    statusEl.style.color = '#e88'; statusEl.textContent = `Could not reach GetRida (${e.message}). Try again in a moment.`;
+    return false;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const card = document.getElementById('grkConnectCard');
+  const input = document.getElementById('grkKeyInput');
+  const save = document.getElementById('grkKeySave');
+  const status = document.getElementById('grkKeyStatus');
+  const sInput = document.getElementById('settingsGrkKey');
+  const sSave = document.getElementById('settingsGrkSave');
+  const sStatus = document.getElementById('settingsGrkStatus');
+
+  const existing = await loadGrkKey();
+  if (card) card.style.display = existing ? 'none' : 'block';
+  if (sStatus) sStatus.textContent = existing ? `Connected (…${existing.slice(-4)})` : 'Not connected';
+
+  save?.addEventListener('click', async () => {
+    save.disabled = true;
+    if (await verifyAndSaveGrk(input.value, status)) {
+      input.value = '';
+      setTimeout(() => location.reload(), 800);
+    }
+    save.disabled = false;
+  });
+  input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') save.click(); });
+  sSave?.addEventListener('click', async () => {
+    sSave.disabled = true;
+    if (await verifyAndSaveGrk(sInput.value, sStatus)) { sInput.value = ''; setTimeout(() => location.reload(), 800); }
+    sSave.disabled = false;
+  });
+});
