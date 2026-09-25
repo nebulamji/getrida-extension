@@ -1,4 +1,8 @@
 # Changelog
+## 0.4.3 — 2026-09-24
+
+- "Finish setting up your workspace" banner until portal onboarding is complete.
+
 ## 0.4.2 — 2026-09-24
 
 - New "Connect your GetRida key" card and a GetRida key field in Settings. The key is checked against your account before it is saved.

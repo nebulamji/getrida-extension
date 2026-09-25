@@ -1334,6 +1334,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const existing = await loadGrkKey();
   if (card) card.style.display = existing ? 'none' : 'block';
+  if (existing) {
+    // Until onboarding is complete the agent is generic — point the user at it.
+    fetch(`${await grkAgentBase()}/api/agent/status`, { headers: { authorization: `Bearer ${existing}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        const banner = document.getElementById('onboardingBanner');
+        if (banner && b && b.onboarding_status !== 'complete') banner.style.display = 'block';
+      })
+      .catch(() => {});
+  }
   if (sStatus) sStatus.textContent = existing ? `Connected (…${existing.slice(-4)})` : 'Not connected';
 
   save?.addEventListener('click', async () => {

@@ -7,7 +7,7 @@
       "strict_min_version": "112.0"
     }
   },
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Compile your tabs into mission reports. Close the noise. Upgrade to full workspace agent.",
   "permissions": [
     "activeTab",
