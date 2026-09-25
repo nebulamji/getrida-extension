@@ -1,4 +1,11 @@
 # Changelog
+## 0.4.1 — 2026-09-24
+
+- Works with keys from getrida.work/start and from Stripe checkout (backend now accepts both).
+- Agent replies in plain client language.
+- Memory and Integrations tabs authenticate with your grk_ key.
+- Welcome screen no longer names internal infrastructure.
+
 
 ## [Unreleased]
 

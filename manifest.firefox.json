@@ -7,7 +7,7 @@
       "strict_min_version": "112.0"
     }
   },
-  "version": "0.1.0",
+  "version": "0.4.1",
   "description": "Compile your tabs into mission reports. Close the noise. Upgrade to full workspace agent.",
   "permissions": [
     "activeTab",
@@ -23,7 +23,9 @@
     "default_title": "GetRida.Work"
   },
   "background": {
-    "scripts": ["background.js"],
+    "scripts": [
+      "background.js"
+    ],
     "type": "module"
   },
   "sidebar_action": {
