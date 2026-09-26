@@ -158,6 +158,17 @@ label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: upp
   <div id="grkKeyStatus" style="font-size:11px;margin-top:8px;"></div>
 </div>
 
+<div id="captureCard" style="display:none;margin:12px;padding:12px 14px;border:1px solid #2a4a69;border-radius:10px;background:#0c141c;font-size:12px;line-height:1.5;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    <strong>Send this page to Rida</strong>
+    <a href="https://portal-beta.getrida.work/#intake" target="_blank" rel="noopener" style="color:#8ab4e8;font-size:11px;">Open Intake →</a>
+  </div>
+  <div style="font-size:11px;color:#9aa;margin-bottom:6px;">A competitor's ad, a possible buyer, a prospect's post, an idea. Rida sorts it, says why it matters, and files it. Select text first to send just that. Or right-click anything → Send to Rida.</div>
+  <input type="text" id="captureNote" placeholder="Why you're saving it (optional)" style="width:100%;box-sizing:border-box;margin-bottom:6px;" />
+  <button class="btn" id="captureBtn" style="width:100%;">Send to Rida</button>
+  <div id="captureResult" style="margin-top:8px;"></div>
+</div>
+
 <div id="approvalsCard" style="display:none;margin:12px;padding:12px 14px;border:1px solid #2a4a69;border-radius:10px;background:#0c141c;font-size:12px;line-height:1.5;">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
     <strong id="approvalsTitle">Waiting for your approval</strong>

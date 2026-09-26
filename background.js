@@ -117,7 +117,60 @@ chrome.tabs.onRemoved.addListener(async () => {
   });
 });
 
+
+// ── Send to Rida: anything you're looking at becomes a capture in your Intake feed ──
+// Rida sorts it (competitor, possible buyer, prospect, partner, investor, idea, news), says why it
+// matters, files it against the matching contact or deal, and learns from what you save or dismiss.
+function pageSnapshot() {
+  const sel = String(window.getSelection ? window.getSelection() : '').trim();
+  const meta = document.querySelector('meta[name="description"],meta[property="og:description"]');
+  const main = document.querySelector('main, article, [role="main"]') || document.body;
+  return { title: document.title, selection: sel, description: meta ? meta.content : '', text: (main?.innerText || '').replace(/\s+/g, ' ').slice(0, 10000) };
+}
+async function sendCapture(tab, extra = {}) {
+  const st = await chrome.storage.local.get(['getrida_grk_key', 'getrida_endpoint']);
+  if (!st.getrida_grk_key) return { ok: false, error: 'Add your GetRida key in the side panel first.' };
+  let snap = { title: tab?.title || '', selection: '', description: '', text: '' };
+  if (tab?.id && /^https?:/.test(tab.url || '')) {
+    try { const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: pageSnapshot }); if (r?.result) snap = r.result; } catch (e) { /* page blocks scripts: send title + URL */ }
+  }
+  const text = extra.selection || snap.selection || [snap.description, snap.text].filter(Boolean).join('\n');
+  const raw = (st.getrida_endpoint || '').replace(/\/api\/v1\/compile$/, '');
+  const base = raw && !/^https:\/\/getrida\.work$/.test(raw) ? new URL(raw).origin : 'https://app.getrida.work';
+  const res = await fetch(`${base}/api/envoy/intel/captures`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${st.getrida_grk_key}` },
+    body: JSON.stringify({ url: extra.url || tab?.url || '', title: snap.title || tab?.title || '', text, note: extra.note || '' }),
+  }).catch(() => null);
+  if (!res) return { ok: false, error: "Couldn't reach GetRida." };
+  if (res.status === 402) return { ok: false, error: "You're out of credits. Top up in Wallet." };
+  if (!res.ok) return { ok: false, error: `GetRida said ${res.status}.` };
+  return { ok: true, capture: await res.json() };
+}
+function flashBadge(tabId, ok) {
+  chrome.action.setBadgeText({ tabId, text: ok ? '✓' : '!' }).catch(() => {});
+  chrome.action.setBadgeBackgroundColor({ tabId, color: ok ? '#2e7d4f' : '#a33' }).catch(() => {});
+  setTimeout(() => chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {}), 4000);
+}
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({ id: 'rida-capture', title: 'Send to Rida', contexts: ['page', 'selection', 'link', 'image'] });
+  });
+});
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId !== 'rida-capture') return;
+  const r = await sendCapture(tab, { selection: info.selectionText || '', url: info.linkUrl || info.srcUrl || '' });
+  if (tab?.id) flashBadge(tab.id, r.ok);
+  await chrome.storage.local.set({ getrida_last_capture: { at: Date.now(), ...r } });
+});
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.action === 'capture_tab') {
+    chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => sendCapture(tab, { note: msg.note || '' })).then(async (r) => {
+      await chrome.storage.local.set({ getrida_last_capture: { at: Date.now(), ...r } }); sendResponse(r);
+    });
+    return true;
+  }
   if (msg.action === 'meet_transcript') {
     sendMeetTranscript(msg.payload).then(sendResponse);
     return true;

@@ -1427,3 +1427,36 @@ document.addEventListener('DOMContentLoaded', () => {
   loadApprovals();
   setInterval(loadApprovals, 60000);
 });
+
+// ── Send to Rida (the capture into your Intake feed) ──
+const KIND_LABEL = { competitor: 'Competitor', suitor: 'Possible buyer or backer', prospect: 'Prospect', partner: 'Partner', investor: 'Investor', idea: 'Idea', news: 'News', other: 'Saved' };
+function renderCapture(el, r) {
+  el.replaceChildren();
+  if (!r) return;
+  if (!r.ok) { const e = document.createElement('div'); e.style.color = '#e99'; e.textContent = r.error || "Couldn't send it."; el.append(e); return; }
+  const c = r.capture || {};
+  const pill = document.createElement('div'); pill.style.cssText = 'font-weight:600;';
+  pill.textContent = `${KIND_LABEL[c.kind] || 'Saved'}${c.contact_name ? ' · ' + c.contact_name : ''}${c.deal_name ? ' · ' + c.deal_name : ''}`;
+  const why = document.createElement('div'); why.style.cssText = 'color:#cdd;margin-top:2px;'; why.textContent = c.why || c.summary || '';
+  const next = document.createElement('div'); next.style.cssText = 'color:#9aa;margin-top:2px;'; next.textContent = c.suggested_action ? `Next: ${c.suggested_action}` : '';
+  el.append(pill, why, next);
+}
+document.addEventListener('DOMContentLoaded', async () => {
+  const card = document.getElementById('captureCard');
+  const btn = document.getElementById('captureBtn');
+  const note = document.getElementById('captureNote');
+  const out = document.getElementById('captureResult');
+  if (!card || !btn) return;
+  if (!(await loadGrkKey())) return;
+  card.style.display = 'block';
+  const { getrida_last_capture: last } = await chrome.storage.local.get('getrida_last_capture');
+  if (last && Date.now() - last.at < 10 * 60 * 1000) renderCapture(out, last);
+  btn.addEventListener('click', () => {
+    btn.disabled = true; btn.textContent = 'Reading and sorting…'; out.replaceChildren();
+    chrome.runtime.sendMessage({ action: 'capture_tab', note: note.value.trim() }, (r) => {
+      btn.disabled = false; btn.textContent = 'Send to Rida';
+      if (r?.ok) note.value = '';
+      renderCapture(out, r || { ok: false, error: "Couldn't send it." });
+    });
+  });
+});

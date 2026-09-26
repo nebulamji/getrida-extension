@@ -1,4 +1,8 @@
 # Changelog
+## [0.5.2] - 2026-09-26
+
+- Send to Rida: right-click any page, post, ad, link or selection (or use the side-panel button) to send it to your Intake feed. Rida sorts it (competitor, possible buyer, prospect, partner, investor, idea, news), says why it matters, files it against the matching contact or deal, and suggests a next move. What you save or dismiss in Intake shapes what rises to the top.
+
 ## [0.5.1] - 2026-09-26
 
 - Approvals in the side panel: drafts your employee wants to send (to, from, subject, preview) with Approve and send / Don't send. Refreshes every minute; edit in the workspace.
