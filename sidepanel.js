@@ -1361,3 +1361,69 @@ document.addEventListener('DOMContentLoaded', async () => {
     sSave.disabled = false;
   });
 });
+
+// ── Approvals: the employee's drafts wait here too (same gate as the workspace) ──
+async function loadApprovals() {
+  const card = document.getElementById('approvalsCard');
+  const list = document.getElementById('approvalsList');
+  const title = document.getElementById('approvalsTitle');
+  const status = document.getElementById('approvalsStatus');
+  if (!card || !list) return;
+  const key = await loadGrkKey();
+  if (!key) { card.style.display = 'none'; return; }
+  const base = await grkAgentBase();
+  const auth = { authorization: `Bearer ${key}`, 'content-type': 'application/json' };
+  let drafts = [];
+  try {
+    const r = await fetch(`${base}/api/envoy/gate/pending`, { headers: auth });
+    if (!r.ok) { card.style.display = 'none'; return; }
+    drafts = ((await r.json()).decisions || []).filter((d) => d.context);
+  } catch (e) { card.style.display = 'none'; return; }
+  card.style.display = drafts.length ? 'block' : 'none';
+  title.textContent = drafts.length === 1 ? '1 message waiting for your approval' : `${drafts.length} messages waiting for your approval`;
+  list.replaceChildren();
+  for (const d of drafts.slice(0, 5)) {
+    const c = d.context;
+    const row = document.createElement('div');
+    row.style.cssText = 'border-top:1px solid #1e2a36;padding:8px 0;';
+    const head = document.createElement('div');
+    head.style.cssText = 'font-weight:600;';
+    head.textContent = c.subject || '(no subject)';
+    const meta = document.createElement('div');
+    meta.style.cssText = 'color:#9aa;font-size:11px;';
+    meta.textContent = `To ${c.contact_name ? c.contact_name + ' · ' : ''}${c.to_addr} · from ${c.from_addr}`;
+    const body = document.createElement('div');
+    body.style.cssText = 'color:#cdd;margin:4px 0;white-space:pre-wrap;max-height:90px;overflow:hidden;';
+    body.textContent = (c.body || '').slice(0, 400);
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:6px;margin-top:4px;';
+    const ok = document.createElement('button'); ok.className = 'btn'; ok.textContent = 'Approve and send';
+    const no = document.createElement('button'); no.className = 'btn'; no.textContent = "Don't send";
+    no.style.opacity = '0.75';
+    const act = async (fn, done) => {
+      ok.disabled = no.disabled = true; status.textContent = 'Working…';
+      try {
+        const res = await fn();
+        if (res.status === 402) { status.textContent = "You're out of credits. Top up in Wallet, then approve again."; ok.disabled = no.disabled = false; return; }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        status.textContent = done;
+        loadApprovals();
+      } catch (e) { status.textContent = `Couldn't do that (${e.message}).`; ok.disabled = no.disabled = false; }
+    };
+    ok.addEventListener('click', () => act(() => fetch(`${base}/api/envoy/gate/${d.id}/approve`, { method: 'POST', headers: auth, body: '{}' }), `Sent to ${c.to_addr}.`));
+    no.addEventListener('click', () => act(() => fetch(`${base}/api/envoy/gate/${d.id}`, { method: 'PATCH', headers: auth, body: JSON.stringify({ state: 'REVOKED_NO', reason: 'Client chose not to send' }) }), 'Not sent.'));
+    actions.append(ok, no);
+    row.append(head, meta, body, actions);
+    list.append(row);
+  }
+  if (drafts.length > 5) {
+    const more = document.createElement('div');
+    more.style.cssText = 'color:#9aa;font-size:11px;padding-top:6px;';
+    more.textContent = `+${drafts.length - 5} more in your workspace.`;
+    list.append(more);
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  loadApprovals();
+  setInterval(loadApprovals, 60000);
+});
