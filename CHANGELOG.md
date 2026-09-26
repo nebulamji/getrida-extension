@@ -1,17 +1,21 @@
 # Changelog
-## 0.5.1 — 2026-09-26
+## [0.5.1] - 2026-09-26
 
 - Approvals in the side panel: drafts your employee wants to send (to, from, subject, preview) with Approve and send / Don't send. Refreshes every minute; edit in the workspace.
 
-## 0.4.3 — 2026-09-24
+## [0.5.0] - 2026-09-26
+
+- Meet notes: asks once, captures the call's captions, and sends the transcript to your employee at call end for a recap, follow-ups and documents.
+
+## [0.4.3] - 2026-09-24
 
 - "Finish setting up your workspace" banner until portal onboarding is complete.
 
-## 0.4.2 — 2026-09-24
+## [0.4.2] - 2026-09-24
 
 - New "Connect your GetRida key" card and a GetRida key field in Settings. The key is checked against your account before it is saved.
 
-## 0.4.1 — 2026-09-24
+## [0.4.1] - 2026-09-24
 
 - Works with keys from getrida.work/start and from Stripe checkout (backend now accepts both).
 - Agent replies in plain client language.
