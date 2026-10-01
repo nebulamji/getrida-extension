@@ -1,4 +1,8 @@
 # Changelog
+## [0.7.1] - 2026-10-01
+
+- Research: stopped research can be tried again from the side panel (it picks up from the evidence already gathered).
+
 ## [0.7.0] - 2026-10-01
 
 - Research (the lead card): pick the tabs from your session (noise like new tabs and searches starts unticked; private tabs such as mail, drives, data rooms and CRMs are marked and never used in searches), optionally ask a question, choose the brief and depth, and Plan research. You see the questions Rida will answer and the searches it will run; Run it, watch the progress, and read the verdict here — the full brief, with every claim tied to a graded source, opens in your workspace.

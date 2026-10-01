@@ -1622,7 +1622,9 @@ async function rsShowJob(id) {
     box.append(btn('Open the full brief', () => chrome.tabs.create({ url: rsPortal(id) }), true));
     box.append(newBtn());
   } else if (j.status === 'FAILED') {
-    box.append(el('div', 'color:#e99;', j.error || 'This research stopped.')); box.append(newBtn());
+    box.append(el('div', 'color:#e99;', j.error || 'This research stopped.'));
+    box.append(btn('Try again', async () => { status.textContent = 'Starting again…'; const x = await rsApi(`/research/${id}/retry`, { method: 'POST', body: '{}' }); if (!x.ok) status.textContent = x.body.message || "Couldn't restart it."; rsShowJob(id); }, true));
+    box.append(newBtn());
   } else {
     const steps = ['GATHERING', 'READING', 'EXTRACTING', 'WRITING', 'REVIEWING'];
     const bar = el('div', 'display:flex;gap:3px;margin:6px 0;'); const at = steps.indexOf(j.status);
