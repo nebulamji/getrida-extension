@@ -1,4 +1,7 @@
 # Changelog
+## [0.6.0] - 2026-10-01
+
+- On this page: on a LinkedIn profile, a LinkedIn company page or any company website, the side panel shows who they are to you — in your contacts or not, their stage, next step and any drafts waiting — whether they fit who you sell to (title and territory, from your onboarding answers), and how many verified decision-makers at that company are in your lead library, with the ones that hold the titles you sell to. One tap to add the person to your contacts, draft a follow-up into Approvals, or pull the company's people into your contacts as a list.
 ## [0.5.2] - 2026-09-26
 
 - Send to Rida: right-click any page, post, ad, link or selection (or use the side-panel button) to send it to your Intake feed. Rida sorts it (competitor, possible buyer, prospect, partner, investor, idea, news), says why it matters, files it against the matching contact or deal, and suggests a next move. What you save or dismiss in Intake shapes what rises to the top.

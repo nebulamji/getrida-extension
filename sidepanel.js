@@ -1460,3 +1460,108 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 });
+
+// ── On this page: who this person or company is to you, and who you could reach there ──
+// Reads the open tab (a LinkedIn profile, a LinkedIn company page or any company site), asks the
+// workspace what it knows (contacts, stage, next step, drafts waiting), whether they fit who you
+// sell to, and how many decision-makers at that company are in your lead library.
+function extractPageInfo() {
+  const t = (sel) => (document.querySelector(sel)?.innerText || '').trim();
+  const meta = (n) => document.querySelector(`meta[property="${n}"],meta[name="${n}"]`)?.content || '';
+  const u = location.href;
+  if (/linkedin\.com\/in\//.test(u)) {
+    const headline = t('.text-body-medium.break-words') || t('[data-generated-suggestion-target]');
+    const curCo = (document.querySelector('button[aria-label^="Current company"]')?.getAttribute('aria-label') || '').replace(/^Current company:\s*/i, '').replace(/\.\s*Click.*$/i, '').trim();
+    return { url: u, title: document.title, person: { name: t('h1'), headline, company: curCo || (headline.match(/\bat\s+(.+)$/i)?.[1] || '').trim(), location: t('.text-body-small.inline.t-black--light.break-words') } };
+  }
+  if (/linkedin\.com\/company\//.test(u)) return { url: u, title: document.title, company: { name: t('h1') } };
+  const site = meta('og:site_name') || (document.title.split(/[|\-–—:]/).pop() || '').trim();
+  return { url: u, title: document.title, company: { name: site.slice(0, 80), domain: location.hostname } };
+}
+
+let pageSeq = 0;
+async function loadPageCard() {
+  const card = document.getElementById('pageCard'); const body = document.getElementById('pageBody');
+  const title = document.getElementById('pageTitle'); const status = document.getElementById('pageStatus');
+  if (!card) return;
+  const key = await loadGrkKey(); if (!key) { card.style.display = 'none'; return; }
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id || !/^https?:/.test(tab.url || '') || /(getrida\.work|chrome\.google\.com)/.test(tab.url)) { card.style.display = 'none'; return; }
+  const seq = ++pageSeq;
+  card.style.display = 'block'; title.textContent = 'On this page'; body.replaceChildren(); status.textContent = 'Looking…';
+  let info;
+  try { [{ result: info }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: extractPageInfo }); }
+  catch (e) { info = { url: tab.url, title: tab.title }; }
+  const base = await grkAgentBase();
+  const auth = { authorization: `Bearer ${key}`, 'content-type': 'application/json' };
+  const api = (path, init = {}) => fetch(`${base}/api/envoy${path}`, { ...init, headers: auth }).then(async (r) => ({ ok: r.ok, status: r.status, body: await r.json().catch(() => ({})) }));
+  const ctx = await api('/page/context', { method: 'POST', body: JSON.stringify(info || {}) }).catch(() => null);
+  if (seq !== pageSeq) return;
+  if (!ctx?.ok) { status.textContent = ctx?.status === 402 ? 'Choose a plan in your workspace to use this.' : "Couldn't look this up right now."; return; }
+  const d = ctx.body; status.textContent = '';
+  if (d.page.kind === 'other' && !d.contacts.length) { card.style.display = 'none'; return; }
+  const el = (tag, css, text) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text !== undefined) e.textContent = text; return e; };
+  const btn = (label, fn) => { const b = el('button'); b.className = 'btn'; b.textContent = label; b.style.cssText = 'width:auto;padding:4px 10px;font-size:11px;margin:4px 6px 0 0;'; b.addEventListener('click', async () => { b.disabled = true; try { await fn(b); } finally { b.disabled = false; } }); return b; };
+  title.textContent = d.page.person || d.page.company || d.page.domain || 'On this page';
+  if (d.own_site) body.append(el('div', 'color:#9aa;', 'This is your own website. See its visitors in your workspace → Leads → Website.'));
+
+  if (d.fit) {
+    const color = { fit: '#6c6', maybe: '#db7', no: '#e88', unknown: '#9aa' }[d.fit.verdict];
+    const label = { fit: 'Fits who you sell to', maybe: 'Partly fits', no: "Doesn't fit who you sell to", unknown: 'Add who you sell to in onboarding to see fit' }[d.fit.verdict];
+    body.append(el('div', `font-weight:600;color:${color};`, label));
+    for (const r of [...d.fit.reasons.map((x) => '✓ ' + x), ...d.fit.misses.map((x) => '✗ ' + x)]) body.append(el('div', 'color:#cdd;font-size:11px;', r));
+  }
+
+  if (d.contacts.length) {
+    body.append(el('div', 'margin-top:8px;font-weight:600;', d.contacts.length === 1 ? 'In your contacts' : `${d.contacts.length} in your contacts`));
+    for (const c of d.contacts.slice(0, 4)) {
+      const row = el('div', 'border-top:1px solid #1e2a36;padding:6px 0;');
+      row.append(el('div', '', `${c.name || c.email}${c.title ? ' · ' + c.title : ''}`));
+      const bits = [String(c.stage || 'NEW').toLowerCase().replace(/_/g, ' '), c.next_step && `next: ${c.next_step}${c.next_step_due ? ' (' + c.next_step_due + ')' : ''}`, c.drafts_waiting && `${c.drafts_waiting} draft${c.drafts_waiting === 1 ? '' : 's'} waiting`].filter(Boolean);
+      row.append(el('div', 'color:#9aa;font-size:11px;', bits.join(' · ')));
+      if (c.email) row.append(btn('Draft a follow-up', async () => {
+        status.textContent = 'Rida is writing…';
+        const r = await api('/ask', { method: 'POST', body: JSON.stringify({ messages: [{ role: 'user', content: `Write a short follow-up email to ${c.name}${c.company ? ' at ' + c.company : ''}.` }] }) });
+        status.textContent = r.ok && r.body.draft ? `Draft to ${r.body.draft.to} is waiting in Approvals.` : (r.body.message || r.body.reply || "Couldn't draft that.");
+        loadApprovals();
+      }));
+      body.append(row);
+    }
+  } else if (d.page.kind === 'person') {
+    body.append(el('div', 'margin-top:8px;color:#9aa;', 'Not in your contacts yet.'));
+    body.append(btn('Add to contacts', async () => {
+      const p = info.person || {};
+      const r = await api('/page/save', { method: 'POST', body: JSON.stringify({ name: p.name, title: p.headline, company: p.company, linkedin: d.page.linkedin }) });
+      status.textContent = r.ok ? (r.body.existing ? 'Already in your contacts.' : `Added ${p.name}. Open them in Relationships.`) : (r.body.message || "Couldn't add them.");
+      if (r.ok) loadPageCard();
+    }));
+  }
+
+  if (d.library) {
+    const lib = el('div', 'margin-top:8px;border-top:1px solid #1e2a36;padding-top:6px;');
+    const line = el('div', '', `Checking the lead library for ${d.library.company}…`); lib.append(line); body.append(lib);
+    const poll = async (id) => { if (!id) return null; for (let i = 0; i < 20; i++) { const j = await api(`/leads/jobs/${id}`); if (j.body?.status === 'DONE') return j.body.result; if (j.body?.status === 'FAILED') return null; await new Promise((r) => setTimeout(r, 2500)); } return null; };
+    const [all, buyers] = await Promise.all([poll(d.library.job_all), poll(d.library.job_buyers)]);
+    if (seq !== pageSeq) return;
+    if (!all) { line.textContent = 'The lead library is busy. Try ↻ in a minute.'; return; }
+    if (!all.count) { line.textContent = `No verified people at ${d.library.company} in the lead library.`; return; }
+    line.textContent = `${all.count.toLocaleString()} verified ${all.count === 1 ? 'person' : 'people'} at ${d.library.company} in your lead library` + (buyers ? `, ${buyers.count.toLocaleString()} with the titles you sell to.` : '.');
+    const sample = (buyers?.count ? buyers.sample : all.sample).slice(0, 3);
+    for (const s of sample) lib.append(el('div', 'color:#9aa;font-size:11px;', `${s.name} · ${s.title || ''}`));
+    const n = buyers?.count || all.count; const spec = buyers?.count ? d.library.buyer_spec : d.library.spec;
+    lib.append(btn(`Get ${Math.min(n, 100)} into contacts`, async () => {
+      status.textContent = 'Adding…';
+      const r = await api('/leads/lists', { method: 'POST', body: JSON.stringify({ name: `People at ${d.library.company}`, spec, size: Math.min(n, 100) }) });
+      status.textContent = r.ok ? `Pulling ${Math.min(n, 100)} people from ${d.library.company} into your contacts (Leads → Lead lists).`
+        : r.status === 409 ? 'First accept the lead terms once in your workspace (Leads → Lead lists), then try again.'
+        : r.status === 402 ? "You're out of leads and credits this month. Top up in Wallet." : (r.body.message || "Couldn't get them.");
+    }));
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  loadPageCard();
+  document.getElementById('pageRefresh')?.addEventListener('click', loadPageCard);
+  chrome.tabs.onActivated.addListener(() => loadPageCard());
+  // LinkedIn is a single-page app: the URL changes without a reload, so look again shortly after.
+  chrome.tabs.onUpdated.addListener((id, info, tab) => { if (tab.active && (info.status === 'complete' || info.url)) setTimeout(loadPageCard, info.url ? 1800 : 0); });
+});
