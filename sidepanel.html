@@ -154,13 +154,16 @@ label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: upp
   body.is-client .view:not(#view-settings) { display: none !important; }
   body.is-client #view-settings:not(.active) { display: none !important; }
   body.is-client #clientFooter { display: flex !important; }
+  body.is-new #mainNav, body.is-new .view, body.is-new #welcomeView { display: none !important; }
+  body.is-new #grkConnectCard { display: block !important; }
 </style>
 </head>
 <body>
 
 <div id="grkConnectCard" style="display:none;margin:12px;padding:14px;border:1px solid #2a6947;border-radius:10px;background:#0f1a14;">
   <div style="font-weight:700;font-size:13px;margin-bottom:4px;">Connect your GetRida key</div>
-  <div style="font-size:11px;color:#9aa;margin-bottom:8px;">Paste the <code>grk_</code> key from your welcome email or the portal. It stays in this browser.</div>
+  <div style="font-size:12px;color:#cdd;margin-bottom:8px;line-height:1.5;">Your AI employee, in your browser: research your open tabs into a sourced brief, see who's on any LinkedIn profile or company site, and approve what your employee drafts.</div>
+  <div style="font-size:11px;color:#9aa;margin-bottom:8px;">Paste the <code>grk_</code> key from your welcome email or the portal. It stays in this browser. No key yet? <a href="https://getrida.work/start" target="_blank" rel="noopener" style="color:#8ab4e8;">Get one →</a></div>
   <input type="password" id="grkKeyInput" placeholder="grk_…" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;margin-bottom:8px;" />
   <button class="btn" id="grkKeySave" style="width:100%;">Connect</button>
   <div id="grkKeyStatus" style="font-size:11px;margin-top:8px;"></div>

@@ -76,9 +76,38 @@ textarea:focus { outline: none; border-color: #4a9; }
 .meeting-section .meeting-item { font-size: 10px; color: #888; padding: 3px 0; border-top: 1px solid #111; display: flex; justify-content: space-between; }
 .meeting-section .meeting-item .m-platform { color: #69c; }
 .meeting-section .meeting-item .m-time { color: #555; }
+
+/* Client launcher (popup-client.js): replaces the developer popup for clients. */
+#clientLaunch { display: none; padding: 16px 18px; }
+body.client > *:not(#clientLaunch):not(script) { display: none !important; }
+body.client #clientLaunch { display: block; }
+#clientLaunch h1 { font-size: 16px; color: #fff; margin-bottom: 2px; }
+#clientLaunch .sub { font-size: 11px; color: #667; margin-bottom: 14px; }
+#clientLaunch .cl-btn { display: block; width: 100%; text-align: left; padding: 12px 14px; margin-bottom: 8px; background: #0c141c; color: #e6eef5; border: 1px solid #2a4a69; border-radius: 8px; font: inherit; font-size: 13px; cursor: pointer; }
+#clientLaunch .cl-btn b { display: block; font-size: 13px; }
+#clientLaunch .cl-btn span { display: block; font-size: 11px; color: #9aa; margin-top: 2px; }
+#clientLaunch .cl-btn:hover { border-color: #8ab4e8; }
+#clientLaunch .cl-btn:disabled { opacity: 0.6; }
+#clientLaunch .cl-link { background: none; border: 0; color: #8ab4e8; font: inherit; font-size: 12px; cursor: pointer; padding: 4px 0; }
+#clStatus { font-size: 11px; color: #9aa; margin-top: 6px; min-height: 14px; }
 </style>
 </head>
 <body>
+<div id="clientLaunch">
+  <h1>GetRida</h1>
+  <div class="sub" id="clTabs"></div>
+  <div id="clNoKey" style="display:none;">
+    <button class="cl-btn" id="clConnect"><b>Connect your GetRida key</b><span>Research your tabs, see who's on any page, approve what your employee drafts.</span></button>
+  </div>
+  <div id="clMain" style="display:none;">
+    <button class="cl-btn" id="clResearch"><b>Research my tabs</b><span>Rida reads the tabs you pick and writes a sourced brief.</span></button>
+    <button class="cl-btn" id="clCapture"><b>Send this page to Rida</b><span>Sorted into your Intake with why it matters and a next move.</span></button>
+    <button class="cl-btn" id="clApprovals" style="display:none;"></button>
+    <button class="cl-link" id="clWorkspace">Open your workspace →</button>
+  </div>
+  <div id="clStatus"></div>
+</div>
+
 
 <div class="hdr">
   <div>
@@ -138,5 +167,6 @@ textarea:focus { outline: none; border-color: #4a9; }
 </div>
 
 <script src="popup.js"></script>
+<script src="popup-client.js"></script>
 </body>
 </html>

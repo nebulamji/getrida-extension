@@ -124,9 +124,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupMeetingsLiveCard();
   loadClient0Context();
 
-  if (saved['getrida_first_run']) {
+  // The legacy wallet/compile welcome is for developer mode only; clients start at "Connect your GetRida key".
+  const dev = (await chrome.storage.local.get('getrida_dev_mode')).getrida_dev_mode;
+  if (saved['getrida_first_run'] && dev) {
     renderWelcome(saved['getrida_capabilities'] || {});
   } else {
+    if (saved['getrida_first_run']) chrome.storage.local.set({ getrida_first_run: false });
     document.getElementById('mainNav').style.display = 'flex';
   }
 });
@@ -1470,11 +1473,21 @@ function extractPageInfo() {
   const meta = (n) => document.querySelector(`meta[property="${n}"],meta[name="${n}"]`)?.content || '';
   const u = location.href;
   if (/linkedin\.com\/in\//.test(u)) {
-    const headline = t('.text-body-medium.break-words') || t('[data-generated-suggestion-target]');
-    const curCo = (document.querySelector('button[aria-label^="Current company"]')?.getAttribute('aria-label') || '').replace(/^Current company:\s*/i, '').replace(/\.\s*Click.*$/i, '').trim();
-    return { url: u, title: document.title, person: { name: t('h1'), headline, company: curCo || (headline.match(/\bat\s+(.+)$/i)?.[1] || '').trim(), location: t('.text-body-small.inline.t-black--light.break-words') } };
+    // Several independent readings, best first, so a LinkedIn markup change doesn't break it:
+    // structured data → the profile header → the page title ("Name | LinkedIn") / og:title ("Name - Headline - Company").
+    let ld = null;
+    for (const s of document.querySelectorAll('script[type="application/ld+json"]')) { try { const d = JSON.parse(s.textContent || '{}'); const g = [].concat(d['@graph'] || d); ld = g.find((x) => x && x['@type'] === 'Person') || ld; } catch (e) { /* ignore */ } }
+    const top = document.querySelector('main section') || document;
+    const q = (sel) => (top.querySelector(sel)?.innerText || '').trim();
+    const og = meta('og:title'); const ogParts = og.split(/\s[-–|]\s/);
+    const name = (ld?.name || q('h1') || t('h1') || document.title.replace(/^\(\d+\)\s*/, '').split('|')[0] || ogParts[0] || '').trim();
+    const headline = (ld?.jobTitle && [].concat(ld.jobTitle)[0]) || q('.text-body-medium.break-words') || q('[data-generated-suggestion-target]') || q('div.text-body-medium') || ogParts[1] || '';
+    const curCo = (document.querySelector('button[aria-label^="Current company"]')?.getAttribute('aria-label') || '').replace(/^Current company:\s*/i, '').replace(/\.\s*Click.*$/i, '').trim()
+      || ([].concat(ld?.worksFor || [])[0]?.name || '') || (ogParts[2] || '').replace(/\s*\|\s*LinkedIn.*$/i, '');
+    const location = q('.text-body-small.inline.t-black--light.break-words') || (ld?.address?.addressLocality ? [ld.address.addressLocality, ld.address.addressRegion].filter(Boolean).join(', ') : '');
+    return { url: u, title: document.title, person: { name, headline: String(headline).trim(), company: (curCo || (String(headline).match(/\bat\s+(.+)$/i)?.[1] || '')).trim(), location } };
   }
-  if (/linkedin\.com\/company\//.test(u)) return { url: u, title: document.title, company: { name: t('h1') } };
+  if (/linkedin\.com\/company\//.test(u)) return { url: u, title: document.title, company: { name: t('h1') || document.title.replace(/^\(\d+\)\s*/, '').split('|')[0].trim() } };
   const site = meta('og:site_name') || (document.title.split(/[|\-–—:]/).pop() || '').trim();
   return { url: u, title: document.title, company: { name: site.slice(0, 80), domain: location.hostname } };
 }
@@ -1586,11 +1599,11 @@ async function rsRenderTabs() {
   box.replaceChildren();
   for (const t of tabs) {
     const row = document.createElement('label'); row.style.cssText = 'display:flex;gap:6px;align-items:center;padding:4px 0;cursor:pointer;text-transform:none;letter-spacing:normal;font-size:12px;font-weight:400;margin:0;';
-    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.tabId = String(t.id); cb.checked = !RS_NOISE.test(t.url); cb.style.width = 'auto';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.tabId = String(t.id); cb.checked = !RS_NOISE.test(t.url) && !RS_PRIVATE.test(t.url); cb.style.width = 'auto';
     const ico = document.createElement('img'); ico.src = t.favIconUrl || ''; ico.width = 14; ico.height = 14; ico.alt = ''; ico.style.cssText = 'flex:none;border-radius:2px;'; ico.onerror = () => { ico.style.visibility = 'hidden'; };
     const txt = document.createElement('span'); txt.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;color:#cdd;'; txt.textContent = t.title || t.url; txt.title = t.url;
     row.append(cb, ico, txt);
-    if (RS_PRIVATE.test(t.url)) { const lock = document.createElement('span'); lock.textContent = '🔒'; lock.title = 'Private: read for the brief, never used in searches'; lock.style.cssText = 'flex:none;font-size:11px;'; row.append(lock); }
+    if (RS_PRIVATE.test(t.url)) { const lock = document.createElement('span'); lock.textContent = '🔒'; lock.title = 'Private: unticked by default. If you include it, its text is read for the brief but never used in searches.'; lock.style.cssText = 'flex:none;font-size:11px;'; row.append(lock); }
     box.append(row);
   }
   const n = () => box.querySelectorAll('input:checked').length;
@@ -1668,9 +1681,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   chrome.tabs.onRemoved.addListener(() => { if (document.getElementById('researchCompose').style.display !== 'none') rsRenderTabs(); });
 });
 
-// Client mode once a GetRida key is connected (see the style block in sidepanel.html).
+// Client mode once a GetRida key is connected; before that, only the connect card (see sidepanel.html).
 document.addEventListener('DOMContentLoaded', async () => {
-  if (!(await loadGrkKey())) return;
+  const dev = (await chrome.storage.local.get('getrida_dev_mode')).getrida_dev_mode;
+  if (!(await loadGrkKey())) { if (!dev) document.body.classList.add('is-new'); return; }
   document.body.classList.add('is-client');
   document.querySelectorAll('.view.active').forEach((v) => { if (v.id !== 'view-settings') v.classList.remove('active'); });
   document.querySelectorAll('#mainNav .nav-item.active').forEach((n) => { if (n.dataset.view !== 'settings') n.classList.remove('active'); });

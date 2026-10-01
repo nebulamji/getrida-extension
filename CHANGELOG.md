@@ -1,4 +1,11 @@
 # Changelog
+## [0.7.2] - 2026-10-01
+
+- Toolbar button: a client launcher — Research my tabs, Send this page to Rida, what's waiting for your approval, and your workspace (the older tab-compiler popup is developer-mode only).
+- First run: a clean "Connect your GetRida key" card that says what you get (no wallet or developer tabs).
+- Research: private tabs (mail, drives, data rooms, CRMs) start unticked; include one only if you choose to.
+- On this page: LinkedIn profiles read from structured data, the profile header or the page title, so LinkedIn layout changes don't break it.
+
 ## [0.7.1] - 2026-10-01
 
 - Research: stopped research can be tried again from the side panel (it picks up from the evidence already gathered).
