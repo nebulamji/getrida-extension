@@ -1,4 +1,8 @@
 # Changelog
+## [0.7.0] - 2026-10-01
+
+- Research (the lead card): pick the tabs from your session (noise like new tabs and searches starts unticked; private tabs such as mail, drives, data rooms and CRMs are marked and never used in searches), optionally ask a question, choose the brief and depth, and Plan research. You see the questions Rida will answer and the searches it will run; Run it, watch the progress, and read the verdict here — the full brief, with every claim tied to a graded source, opens in your workspace.
+- Client mode: once your GetRida key is connected the side panel is Research, This page, Approvals and Send to Rida, with Settings and a link to your workspace. The older developer tabs are out of the way.
 ## [0.6.0] - 2026-10-01
 
 - On this page: on a LinkedIn profile, a LinkedIn company page or any company website, the side panel shows who they are to you — in your contacts or not, their stage, next step and any drafts waiting — whether they fit who you sell to (title and territory, from your onboarding answers), and how many verified decision-makers at that company are in your lead library, with the ones that hold the titles you sell to. One tap to add the person to your contacts, draft a follow-up into Approvals, or pull the company's people into your contacts as a list.

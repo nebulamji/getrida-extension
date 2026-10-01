@@ -147,6 +147,14 @@ label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: upp
 .pf-receipt-hash { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 10px; color: #4a9; }
 .pf-empty { text-align: center; color: #444; font-size: 12px; padding: 24px 10px; border: 1px dashed #1a1a1a; border-radius: 6px; }
 </style>
+<style>
+  /* Client mode (a GetRida key is connected): the side panel is Research, This page, Approvals and
+     Send to Rida. The older developer tabs stay out of the way; Settings holds the key. */
+  body.is-client #mainNav .nav-item:not([data-view="settings"]) { display: none !important; }
+  body.is-client .view:not(#view-settings) { display: none !important; }
+  body.is-client #view-settings:not(.active) { display: none !important; }
+  body.is-client #clientFooter { display: flex !important; }
+</style>
 </head>
 <body>
 
@@ -156,6 +164,26 @@ label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: upp
   <input type="password" id="grkKeyInput" placeholder="grk_…" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;margin-bottom:8px;" />
   <button class="btn" id="grkKeySave" style="width:100%;">Connect</button>
   <div id="grkKeyStatus" style="font-size:11px;margin-top:8px;"></div>
+</div>
+
+<div id="researchCard" style="display:none;margin:12px;padding:12px 14px;border:1px solid #2a4a69;border-radius:10px;background:#0c141c;font-size:12px;line-height:1.5;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+    <strong style="font-size:13px;">Research</strong>
+    <a id="researchAll" href="https://portal-beta.getrida.work/#research" target="_blank" rel="noopener" style="color:#8ab4e8;font-size:11px;">All research →</a>
+  </div>
+  <div id="researchCompose">
+    <div style="font-size:11px;color:#9aa;margin-bottom:8px;">Rida reads the tabs you pick, researches outward (web, news, SEC filings, academic, LinkedIn, Reddit) and writes a brief with every claim tied to a graded source.</div>
+    <textarea id="researchQ" rows="2" placeholder="What do you want to know? (optional — Rida infers it from your tabs)" style="width:100%;box-sizing:border-box;margin-bottom:6px;"></textarea>
+    <div style="display:flex;gap:6px;margin-bottom:6px;">
+      <select id="researchTemplate" style="flex:1;" aria-label="Brief type"><option value="intelligence">Intelligence brief</option><option value="company">Company profile</option><option value="person">Person profile</option><option value="market">Market map</option><option value="dd_memo">Due-diligence memo</option></select>
+      <select id="researchDepth" style="flex:1;" aria-label="Depth"><option value="quick">Quick · ~2 min</option><option value="deep" selected>Deep · ~5 min</option><option value="institutional">Institutional · ~10 min</option></select>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0;"><span id="researchTabsTitle" style="color:#cdd;">Your tabs</span><span><a href="#" id="researchAllTabs" style="color:#8ab4e8;font-size:11px;">all</a> · <a href="#" id="researchNoTabs" style="color:#8ab4e8;font-size:11px;">none</a></span></div>
+    <div id="researchTabs" style="max-height:200px;overflow-y:auto;border-top:1px solid #1e2a36;border-bottom:1px solid #1e2a36;margin-bottom:8px;"></div>
+    <button class="btn" id="researchPlanBtn" style="width:100%;">Plan research</button>
+  </div>
+  <div id="researchJob" style="display:none;"></div>
+  <div id="researchStatus" style="font-size:11px;color:#9aa;margin-top:6px;"></div>
 </div>
 
 <div id="pageCard" style="display:none;margin:12px;padding:12px 14px;border:1px solid #2a4a69;border-radius:10px;background:#0c141c;font-size:12px;line-height:1.5;">
@@ -235,6 +263,7 @@ label { font-size: 10px; color: #666; letter-spacing: 0.5px; text-transform: upp
   </div>
 </div>
 
+<div id="clientFooter" style="display:none;justify-content:space-between;align-items:center;margin:4px 12px 10px;font-size:11px;"><a href="https://portal-beta.getrida.work" target="_blank" rel="noopener" style="color:#8ab4e8;">Open your workspace →</a><span style="color:#556;">GetRida</span></div>
 <div class="nav" id="mainNav" style="display:none;">
   <div class="nav-item" data-view="profile">Profile</div>
   <div class="nav-item active" data-view="compile">Compile</div>

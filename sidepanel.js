@@ -1565,3 +1565,111 @@ document.addEventListener('DOMContentLoaded', () => {
   // LinkedIn is a single-page app: the URL changes without a reload, so look again shortly after.
   chrome.tabs.onUpdated.addListener((id, info, tab) => { if (tab.active && (info.status === 'complete' || info.url)) setTimeout(loadPageCard, info.url ? 1800 : 0); });
 });
+
+// ── Research: compile your tabs, then research outward (Intelligence on Demand) ──
+// Lists the tabs in this window; noise (new tabs, searches, sign-in pages) starts unticked and
+// private tabs (mail, drive, data rooms, CRMs) are marked: their text is read, never searched.
+// Plan → see the questions → Run → live progress → the verdict, with the full brief in the workspace.
+const RS_NOISE = /^(chrome|about|edge|brave|chrome-extension):|newtab|^https?:\/\/(www\.)?google\.[a-z.]+\/(search|webhp)?(\?|$)|accounts\.google|\/(login|signin|sign-in|auth)\b/i;
+const RS_PRIVATE = /(mail\.google|outlook\.(live|office)|docs\.google|drive\.google|dropbox|box\.com|notion\.so|datasite|intralinks|ansarada|firmex|docsend|sharepoint|onedrive|slack\.com|app\.hubspot|salesforce|getrida\.work)/i;
+const RS_STEPS = { PLANNED: 'Plan ready', GATHERING: 'Searching', READING: 'Reading sources', EXTRACTING: 'Pulling out evidence', WRITING: 'Writing the brief', REVIEWING: 'Checking every claim', DONE: 'Ready', FAILED: 'Stopped' };
+function rsTabText() { return { title: document.title, text: (document.body?.innerText || '').replace(/\n{3,}/g, '\n\n').slice(0, 7000) }; }
+async function rsApi(path, init = {}) {
+  const key = await loadGrkKey(); const base = await grkAgentBase();
+  const r = await fetch(`${base}/api/envoy${path}`, { ...init, headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' } });
+  return { ok: r.ok, status: r.status, body: await r.json().catch(() => ({})) };
+}
+const rsPortal = (id) => `https://portal-beta.getrida.work/#research${id ? '/' + id : ''}`;
+async function rsRenderTabs() {
+  const box = document.getElementById('researchTabs'); if (!box) return;
+  const tabs = (await chrome.tabs.query({ currentWindow: true })).filter((t) => /^https?:/.test(t.url || ''));
+  box.replaceChildren();
+  for (const t of tabs) {
+    const row = document.createElement('label'); row.style.cssText = 'display:flex;gap:6px;align-items:center;padding:4px 0;cursor:pointer;text-transform:none;letter-spacing:normal;font-size:12px;font-weight:400;margin:0;';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.tabId = String(t.id); cb.checked = !RS_NOISE.test(t.url); cb.style.width = 'auto';
+    const ico = document.createElement('img'); ico.src = t.favIconUrl || ''; ico.width = 14; ico.height = 14; ico.alt = ''; ico.style.cssText = 'flex:none;border-radius:2px;'; ico.onerror = () => { ico.style.visibility = 'hidden'; };
+    const txt = document.createElement('span'); txt.style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;color:#cdd;'; txt.textContent = t.title || t.url; txt.title = t.url;
+    row.append(cb, ico, txt);
+    if (RS_PRIVATE.test(t.url)) { const lock = document.createElement('span'); lock.textContent = '🔒'; lock.title = 'Private: read for the brief, never used in searches'; lock.style.cssText = 'flex:none;font-size:11px;'; row.append(lock); }
+    box.append(row);
+  }
+  const n = () => box.querySelectorAll('input:checked').length;
+  const title = document.getElementById('researchTabsTitle');
+  const upd = () => { title.textContent = `Your tabs · ${n()} of ${tabs.length} picked`; };
+  box.onchange = upd; upd();
+}
+async function rsShowJob(id) {
+  const box = document.getElementById('researchJob'); const compose = document.getElementById('researchCompose'); const status = document.getElementById('researchStatus');
+  const r = await rsApi(`/research/${id}`);
+  if (!r.ok) { await chrome.storage.local.remove('getrida_research_job'); box.style.display = 'none'; compose.style.display = 'block'; return; }
+  const j = r.body; compose.style.display = 'none'; box.style.display = 'block'; box.replaceChildren(); status.textContent = '';
+  const el = (tag, css, text) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text !== undefined) e.textContent = text; return e; };
+  const btn = (label, fn, primary) => { const b = el('button'); b.className = 'btn'; b.textContent = label; b.style.cssText = `width:auto;padding:5px 10px;font-size:11px;margin:6px 6px 0 0;${primary ? '' : 'opacity:0.8;'}`; b.addEventListener('click', fn); return b; };
+  box.append(el('div', 'font-weight:600;color:#e6eef5;margin-bottom:2px;', j.title || j.question));
+  box.append(el('div', 'color:#9aa;font-size:11px;margin-bottom:6px;', `${j.template_label} · ${j.depth} · ${RS_STEPS[j.status] || j.status}`));
+  const newBtn = () => btn('New research', async () => { await chrome.storage.local.remove('getrida_research_job'); box.style.display = 'none'; compose.style.display = 'block'; rsRenderTabs(); });
+  if (j.status === 'PLANNED') {
+    if (j.plan?.themes?.length) box.append(el('div', 'color:#9aa;font-size:11px;', `From your tabs: ${j.plan.themes.map((t) => t.name).join(' · ')}`));
+    const ul = el('ol', 'margin:6px 0 4px;padding-left:18px;color:#cdd;'); for (const q of j.plan?.subquestions || []) ul.append(el('li', 'margin-bottom:3px;', q.q)); box.append(ul);
+    box.append(el('div', 'color:#9aa;font-size:11px;', `${(j.plan?.queries || []).length} searches planned`));
+    box.append(btn('Run research', async () => { status.textContent = 'Starting…'; const x = await rsApi(`/research/${id}/run`, { method: 'POST', body: '{}' }); if (!x.ok) status.textContent = x.body.message || "Couldn't start it."; rsShowJob(id); }, true));
+    box.append(btn('Edit the plan', () => chrome.tabs.create({ url: rsPortal(id) })));
+    box.append(newBtn());
+  } else if (j.status === 'DONE') {
+    const v = String(j.brief?.verdict || '').replace(/\s*\[C\d+\]/g, '');
+    box.append(el('div', 'border-left:3px solid #8ab4e8;padding:4px 0 4px 8px;color:#e6eef5;margin:4px 0;white-space:pre-wrap;', v));
+    box.append(el('div', 'color:#9aa;font-size:11px;', `${j.counts?.kept || 0} sources · ${(j.claims || []).length} quoted claims${j.review?.checked ? ` · ${j.review.checked} statements checked` : ''}`));
+    box.append(btn('Open the full brief', () => chrome.tabs.create({ url: rsPortal(id) }), true));
+    box.append(newBtn());
+  } else if (j.status === 'FAILED') {
+    box.append(el('div', 'color:#e99;', j.error || 'This research stopped.')); box.append(newBtn());
+  } else {
+    const steps = ['GATHERING', 'READING', 'EXTRACTING', 'WRITING', 'REVIEWING'];
+    const bar = el('div', 'display:flex;gap:3px;margin:6px 0;'); const at = steps.indexOf(j.status);
+    steps.forEach((s, i) => bar.append(el('div', `flex:1;height:4px;border-radius:2px;background:${i < at ? '#8ab4e8' : i === at ? '#d9a441' : '#1e2a36'};`)));
+    box.append(bar, el('div', 'color:#cdd;', j.progress || 'Working…'));
+    box.append(btn('Watch it in the workspace', () => chrome.tabs.create({ url: rsPortal(id) })));
+    setTimeout(() => rsShowJob(id), 4000);
+  }
+}
+document.addEventListener('DOMContentLoaded', async () => {
+  const card = document.getElementById('researchCard'); if (!card) return;
+  if (!(await loadGrkKey())) return;
+  card.style.display = 'block';
+  const { getrida_research_job: last } = await chrome.storage.local.get('getrida_research_job');
+  if (last?.id && Date.now() - last.at < 24 * 3600 * 1000) rsShowJob(last.id); else rsRenderTabs();
+  document.getElementById('researchAllTabs').addEventListener('click', (e) => { e.preventDefault(); document.querySelectorAll('#researchTabs input').forEach((c) => { c.checked = true; }); document.getElementById('researchTabs').onchange(); });
+  document.getElementById('researchNoTabs').addEventListener('click', (e) => { e.preventDefault(); document.querySelectorAll('#researchTabs input').forEach((c) => { c.checked = false; }); document.getElementById('researchTabs').onchange(); });
+  const status = document.getElementById('researchStatus'); const btn = document.getElementById('researchPlanBtn');
+  btn.addEventListener('click', async () => {
+    const ids = [...document.querySelectorAll('#researchTabs input:checked')].map((c) => Number(c.dataset.tabId));
+    const q = document.getElementById('researchQ').value.trim();
+    if (!ids.length && !q) { status.textContent = 'Pick some tabs or ask a question.'; return; }
+    btn.disabled = true; btn.textContent = `Reading ${ids.length} tab${ids.length === 1 ? '' : 's'}…`; status.textContent = '';
+    const all = await chrome.tabs.query({ currentWindow: true });
+    const tabs = [];
+    for (const id of ids.slice(0, 40)) {
+      const t = all.find((x) => x.id === id); if (!t) continue;
+      let text = '', title = t.title || '';
+      if (!/\.pdf(\?|#|$)/i.test(t.url)) { try { const [{ result }] = await chrome.scripting.executeScript({ target: { tabId: id }, func: rsTabText }); text = result?.text || ''; title = result?.title || title; } catch (e) { /* unreadable tab: the URL is still sent and read by Rida */ } }
+      tabs.push({ url: t.url, title, text, confidential: RS_PRIVATE.test(t.url) });
+    }
+    btn.textContent = 'Planning…';
+    const r = await rsApi('/research', { method: 'POST', body: JSON.stringify({ question: q, tabs, template: document.getElementById('researchTemplate').value, depth: document.getElementById('researchDepth').value }) });
+    btn.disabled = false; btn.textContent = 'Plan research';
+    if (!r.ok) { status.textContent = r.status === 402 ? (r.body.message || 'Not enough credits — top up in your workspace Wallet.') : (r.body.message || "Couldn't plan that. Try again."); return; }
+    await chrome.storage.local.set({ getrida_research_job: { id: r.body.id, at: Date.now() } });
+    document.getElementById('researchQ').value = '';
+    rsShowJob(r.body.id);
+  });
+  chrome.tabs.onCreated.addListener(() => { if (document.getElementById('researchCompose').style.display !== 'none') rsRenderTabs(); });
+  chrome.tabs.onRemoved.addListener(() => { if (document.getElementById('researchCompose').style.display !== 'none') rsRenderTabs(); });
+});
+
+// Client mode once a GetRida key is connected (see the style block in sidepanel.html).
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!(await loadGrkKey())) return;
+  document.body.classList.add('is-client');
+  document.querySelectorAll('.view.active').forEach((v) => { if (v.id !== 'view-settings') v.classList.remove('active'); });
+  document.querySelectorAll('#mainNav .nav-item.active').forEach((n) => { if (n.dataset.view !== 'settings') n.classList.remove('active'); });
+});
